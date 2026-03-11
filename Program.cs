@@ -6,6 +6,7 @@ using Localizer;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 
 class Program
 {
@@ -67,9 +68,74 @@ class Program
             }
         }
 
+        var manifestFiles = Directory.GetFiles(repoDir, "*.json", SearchOption.AllDirectories)
+            .Where(path => !path.EndsWith(".deps.json", StringComparison.OrdinalIgnoreCase))
+            .Where(path => !path.EndsWith(".runtimeconfig.json", StringComparison.OrdinalIgnoreCase))
+            .ToArray();
+
+        foreach (var file in manifestFiles)
+        {
+            if (TranslateManifestFile(file, dictionary ?? new(), dictPath))
+            {
+                Console.WriteLine($"[已更新] {Path.GetRelativePath(rootPath, file)}");
+            }
+        }
+
         Console.WriteLine("正在檢查是否有新發現的字串需寫入字典...");
         rewriter.SaveMissingTranslations();
         Console.WriteLine("中文化處理與字典更新完成！");
+    }
+
+    static bool TranslateManifestFile(string filePath, Dictionary<string, string> dictionary, string dictPath)
+    {
+        try
+        {
+            var json = JObject.Parse(File.ReadAllText(filePath));
+            var changed = false;
+
+            foreach (var propertyName in new[] { "Punchline", "Description" })
+            {
+                if (json[propertyName]?.Type != JTokenType.String)
+                {
+                    continue;
+                }
+
+                var original = json[propertyName]!.Value<string>()!;
+                if (string.IsNullOrWhiteSpace(original))
+                {
+                    continue;
+                }
+
+                if (dictionary.TryGetValue(original, out var translated) && !string.IsNullOrWhiteSpace(translated) && translated != original)
+                {
+                    json[propertyName] = translated;
+                    changed = true;
+                    continue;
+                }
+
+                if (!dictionary.ContainsKey(original))
+                {
+                    dictionary[original] = original;
+                    SaveDictionary(dictPath, dictionary);
+                }
+            }
+
+            if (changed)
+            {
+                File.WriteAllText(filePath, json.ToString(Formatting.Indented));
+            }
+
+            return changed;
+        }
+        catch (JsonException)
+        {
+            return false;
+        }
+    }
+
+    static void SaveDictionary(string dictPath, Dictionary<string, string> dictionary)
+    {
+        File.WriteAllText(dictPath, JsonConvert.SerializeObject(dictionary, Formatting.Indented));
     }
 
     static string DetectRootPath()
