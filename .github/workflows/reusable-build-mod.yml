@@ -135,7 +135,7 @@ jobs:
 
           for patch in "${patches[@]}"; do
             echo "Applying consumer patch: $patch"
-            git apply --index "$patch"
+            git apply --whitespace=nowarn "$patch"
           done
 
       - name: Verify Translation Smoke Test
