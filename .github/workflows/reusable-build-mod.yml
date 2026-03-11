@@ -69,6 +69,10 @@ on:
         required: false
         type: string
         default: ""
+      consumer_patch_glob:
+        required: false
+        type: string
+        default: ".consumer-patches/*.patch"
 
 jobs:
   build-and-translate:
@@ -116,6 +120,23 @@ jobs:
           LOCALIZER_DICT_PATH: ${{ inputs.localizer_dict_path }}
         run: |
           dotnet run --project ./.template/DalamudModLocalizer.csproj
+
+      - name: Apply Consumer Patches
+        if: ${{ inputs.consumer_patch_glob != '' }}
+        env:
+          CONSUMER_PATCH_GLOB: ${{ inputs.consumer_patch_glob }}
+        run: |
+          shopt -s nullglob
+          patches=( $CONSUMER_PATCH_GLOB )
+          if [ "${#patches[@]}" -eq 0 ]; then
+            echo "No consumer patches found for glob: $CONSUMER_PATCH_GLOB"
+            exit 0
+          fi
+
+          for patch in "${patches[@]}"; do
+            echo "Applying consumer patch: $patch"
+            git apply --index "$patch"
+          done
 
       - name: Verify Translation Smoke Test
         if: ${{ inputs.translation_smoke_test_patterns != '' }}
