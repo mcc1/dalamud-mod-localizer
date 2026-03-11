@@ -180,6 +180,7 @@ namespace Localizer
             if (IsCommandHelpArgument(node)) return true;
             if (IsHelpMessageAssignment(node)) return true;
             if (IsMenuItemText(node)) return true;
+            if (IsDisplayMapText(node, text)) return true;
 
             foreach (var invocation in invocations)
             {
@@ -212,6 +213,37 @@ namespace Localizer
             }
 
             return false;
+        }
+
+        private bool IsDisplayMapText(SyntaxNode node, string text)
+        {
+            if (!IsHumanText(text))
+            {
+                return false;
+            }
+
+            if (!node.Ancestors().OfType<ObjectCreationExpressionSyntax>().Any(x =>
+                    x.Type.ToString().Contains("Dictionary", StringComparison.Ordinal) ||
+                    x.Type.ToString().Contains("FrozenDictionary", StringComparison.Ordinal)))
+            {
+                return false;
+            }
+
+            var variableName =
+                node.Ancestors().OfType<VariableDeclaratorSyntax>().FirstOrDefault()?.Identifier.Text ??
+                node.Ancestors().OfType<PropertyDeclarationSyntax>().FirstOrDefault()?.Identifier.Text ??
+                node.Ancestors().OfType<FieldDeclarationSyntax>().FirstOrDefault()?.Declaration.Variables.FirstOrDefault()?.Identifier.Text;
+
+            if (string.IsNullOrEmpty(variableName))
+            {
+                return false;
+            }
+
+            return variableName.EndsWith("Names", StringComparison.Ordinal) ||
+                   variableName.EndsWith("Labels", StringComparison.Ordinal) ||
+                   variableName.EndsWith("Texts", StringComparison.Ordinal) ||
+                   variableName.EndsWith("Tooltips", StringComparison.Ordinal) ||
+                   variableName.EndsWith("Descriptions", StringComparison.Ordinal);
         }
 
         private bool IsCommandHelpArgument(SyntaxNode node)
