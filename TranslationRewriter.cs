@@ -222,19 +222,36 @@ namespace Localizer
                 return false;
             }
 
-            if (!node.Ancestors().OfType<ObjectCreationExpressionSyntax>().Any(x =>
-                    x.Type.ToString().Contains("Dictionary", StringComparison.Ordinal) ||
-                    x.Type.ToString().Contains("FrozenDictionary", StringComparison.Ordinal)))
-            {
-                return false;
-            }
-
             var variableName =
                 node.Ancestors().OfType<VariableDeclaratorSyntax>().FirstOrDefault()?.Identifier.Text ??
                 node.Ancestors().OfType<PropertyDeclarationSyntax>().FirstOrDefault()?.Identifier.Text ??
                 node.Ancestors().OfType<FieldDeclarationSyntax>().FirstOrDefault()?.Declaration.Variables.FirstOrDefault()?.Identifier.Text;
 
             if (string.IsNullOrEmpty(variableName))
+            {
+                return false;
+            }
+
+            var declaredType =
+                node.Ancestors().OfType<PropertyDeclarationSyntax>().FirstOrDefault()?.Type.ToString() ??
+                node.Ancestors().OfType<FieldDeclarationSyntax>().FirstOrDefault()?.Declaration.Type.ToString() ??
+                node.Ancestors().OfType<VariableDeclarationSyntax>().FirstOrDefault()?.Type.ToString();
+
+            var isDictionaryLike =
+                !string.IsNullOrEmpty(declaredType) &&
+                (declaredType.Contains("Dictionary", StringComparison.Ordinal) ||
+                 declaredType.Contains("ReadOnlyDictionary", StringComparison.Ordinal) ||
+                 declaredType.Contains("FrozenDictionary", StringComparison.Ordinal));
+
+            if (!isDictionaryLike)
+            {
+                isDictionaryLike = node.Ancestors().OfType<ObjectCreationExpressionSyntax>().Any(x =>
+                    x.Type.ToString().Contains("Dictionary", StringComparison.Ordinal) ||
+                    x.Type.ToString().Contains("ReadOnlyDictionary", StringComparison.Ordinal) ||
+                    x.Type.ToString().Contains("FrozenDictionary", StringComparison.Ordinal));
+            }
+
+            if (!isDictionaryLike)
             {
                 return false;
             }
