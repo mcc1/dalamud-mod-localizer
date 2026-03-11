@@ -150,7 +150,18 @@ jobs:
 
           for patch in "${patches[@]}"; do
             echo "Applying consumer patch: $patch"
-            git apply --whitespace=nowarn "$patch"
+            if git apply --check --whitespace=nowarn "$patch"; then
+              git apply --whitespace=nowarn "$patch"
+              continue
+            fi
+
+            if git apply --reverse --check --whitespace=nowarn "$patch"; then
+              echo "Patch already present, skipping: $patch"
+              continue
+            fi
+
+            echo "Patch could not be applied cleanly: $patch"
+            exit 1
           done
 
       - name: Verify Translation Smoke Test
