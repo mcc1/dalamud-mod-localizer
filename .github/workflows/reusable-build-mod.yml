@@ -85,6 +85,10 @@ jobs:
           ref: ${{ inputs.template_ref }}
           path: .template
 
+      - name: Ensure Shared Scripts Are Executable
+        run: |
+          chmod +x ./.template/scripts/*.sh
+
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
