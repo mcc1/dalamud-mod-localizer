@@ -91,7 +91,21 @@ class Program
 
     static string ResolvePath(string rootPath, string path)
     {
-        return Path.IsPathRooted(path) ? path : Path.GetFullPath(Path.Combine(rootPath, path));
+        if (Path.IsPathRooted(path))
+        {
+            return path;
+        }
+
+        // Consumer-provided relative paths such as the translation dictionary
+        // should resolve from the caller's working directory before falling back
+        // to the template repository root.
+        var cwdCandidate = Path.GetFullPath(Path.Combine(Environment.CurrentDirectory, path));
+        if (File.Exists(cwdCandidate) || Directory.Exists(cwdCandidate))
+        {
+            return cwdCandidate;
+        }
+
+        return Path.GetFullPath(Path.Combine(rootPath, path));
     }
 
     static string ResolveRepoPath(string rootPath, string path)
