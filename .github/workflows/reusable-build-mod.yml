@@ -128,7 +128,13 @@ jobs:
             if [ -z "$pattern" ]; then
               continue
             fi
-            if rg -F --quiet --glob '*.cs' --glob '*.json' --glob '*.md' "$pattern" "$MOD_REPO_DIR"; then
+            if command -v rg >/dev/null 2>&1; then
+              search_cmd=(rg -F --quiet --glob '*.cs' --glob '*.json' --glob '*.md' "$pattern" "$MOD_REPO_DIR")
+            else
+              search_cmd=(grep -R -F -q --include='*.cs' --include='*.json' --include='*.md' "$pattern" "$MOD_REPO_DIR")
+            fi
+
+            if "${search_cmd[@]}"; then
               echo "Verified translated pattern: $pattern"
             else
               echo "Missing translated pattern: $pattern"
