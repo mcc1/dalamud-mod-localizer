@@ -181,6 +181,7 @@ namespace Localizer
             if (IsHelpMessageAssignment(node)) return true;
             if (IsMenuItemText(node)) return true;
             if (IsDisplayMapText(node, text)) return true;
+            if (IsBaseConstructorTitle(node, text)) return true;
 
             foreach (var invocation in invocations)
             {
@@ -213,6 +214,20 @@ namespace Localizer
             }
 
             return false;
+        }
+
+        private bool IsBaseConstructorTitle(SyntaxNode node, string text)
+        {
+            if (!IsHumanText(text))
+            {
+                return false;
+            }
+
+            return node.AncestorsAndSelf().OfType<ArgumentSyntax>().Any(argument =>
+                argument.Expression == node &&
+                argument.Parent is ArgumentListSyntax list &&
+                list.Parent is ConstructorInitializerSyntax initializer &&
+                initializer.IsKind(SyntaxKind.BaseConstructorInitializer));
         }
 
         private bool IsDisplayMapText(SyntaxNode node, string text)
