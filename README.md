@@ -4,7 +4,7 @@ Reusable translation and build template for Dalamud mods.
 
 This repository contains the shared layer extracted from the AutoRetainer-TW workflow:
 
-- `AutoRetainerLocalizer.csproj`
+- `DalamudModLocalizer.csproj`
 - `Program.cs`
 - `TranslationRewriter.cs`
 - `scripts/clone_mod.sh`
@@ -94,8 +94,8 @@ jobs:
 
 ## Included Docs
 
-- [docs/MOD_TRANSLATION_BUILD_PLAYBOOK.md](/h:/project/dalamud-mod-localizer-template/docs/MOD_TRANSLATION_BUILD_PLAYBOOK.md)
-- [docs/TEMPLATE_EXTRACTION_NOTES.md](/h:/project/dalamud-mod-localizer-template/docs/TEMPLATE_EXTRACTION_NOTES.md)
+- [docs/MOD_TRANSLATION_BUILD_PLAYBOOK.md](docs/MOD_TRANSLATION_BUILD_PLAYBOOK.md)
+- [docs/TEMPLATE_EXTRACTION_NOTES.md](docs/TEMPLATE_EXTRACTION_NOTES.md)
 
 ## Credits
 

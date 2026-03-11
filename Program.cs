@@ -75,7 +75,7 @@ class Program
     static string DetectRootPath()
     {
         var current = Environment.CurrentDirectory;
-        if (File.Exists(Path.Combine(current, "AutoRetainerLocalizer.csproj")))
+        if (File.Exists(Path.Combine(current, "DalamudModLocalizer.csproj")))
         {
             return current;
         }

@@ -11,7 +11,7 @@
 
 ## 這個框架現在支援什麼
 
-目前 `AutoRetainerLocalizer.csproj` 提供的是一個可配置的翻譯器執行入口：
+目前 `DalamudModLocalizer.csproj` 提供的是一個可配置的翻譯器執行入口：
 
 - `Program.cs`
 - `TranslationRewriter.cs`
@@ -24,7 +24,7 @@
 
 ## 可配置參數
 
-`dotnet run --project AutoRetainerLocalizer.csproj` 會讀這些環境變數：
+`dotnet run --project DalamudModLocalizer.csproj` 會讀這些環境變數：
 
 - `LOCALIZER_REPO_DIR`
   預設值：`AutoRetainer`
@@ -149,7 +149,7 @@ jobs:
 
       - name: Run Translation
         run: |
-          dotnet run --project AutoRetainerLocalizer.csproj
+          dotnet run --project DalamudModLocalizer.csproj
 
       - name: Prepare Dalamud Dependencies
         run: |
@@ -225,7 +225,7 @@ API13+ 常見：
 export LOCALIZER_REPO_DIR=Lifestream
 export LOCALIZER_SOURCE_SUBPATHS='Lifestream/UI;Lifestream/Windows;Lifestream'
 export LOCALIZER_DICT_PATH=Lifestream.zh-TW.json
-dotnet run --project AutoRetainerLocalizer.csproj
+dotnet run --project DalamudModLocalizer.csproj
 ```
 
 然後在 workflow 中對應：

@@ -111,7 +111,7 @@ jobs:
           LOCALIZER_SOURCE_SUBPATHS: ${{ inputs.localizer_source_subpaths }}
           LOCALIZER_DICT_PATH: ${{ inputs.localizer_dict_path }}
         run: |
-          dotnet run --project ./.template/AutoRetainerLocalizer.csproj
+          dotnet run --project ./.template/DalamudModLocalizer.csproj
 
       - name: Prepare Dalamud Dependencies
         env:

@@ -14,7 +14,7 @@ It is meant to be consumed by mod-specific repositories that keep only:
 
 ## Included Shared Assets
 
-- `AutoRetainerLocalizer.csproj`
+- `DalamudModLocalizer.csproj`
 - `Program.cs`
 - `TranslationRewriter.cs`
 - `scripts/clone_mod.sh`
