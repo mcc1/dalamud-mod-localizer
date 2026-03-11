@@ -488,6 +488,9 @@ namespace Localizer
         {
             var contents = new List<InterpolatedStringContentSyntax>();
             bool isRawString = node.StringStartToken.ValueText.StartsWith("$" + "\"\"\"");
+            bool isVerbatimInterpolatedString =
+                node.StringStartToken.Text.Contains("@", StringComparison.Ordinal) &&
+                !isRawString;
             string leadingWhitespace = "";
             if (isRawString)
             {
@@ -506,7 +509,7 @@ namespace Localizer
             string ProcessText(string rawText, bool isFirstPart)
             {
                 if (string.IsNullOrEmpty(rawText)) return rawText;
-                if (!isRawString)
+                if (!isRawString && !isVerbatimInterpolatedString)
                 {
                     // For normal interpolated strings ($"..."), escape control chars to keep valid C# syntax.
                     return rawText
@@ -515,6 +518,13 @@ namespace Localizer
                         .Replace("\r", "\\r")
                         .Replace("\n", "\\n")
                         .Replace("\t", "\\t");
+                }
+
+                if (isVerbatimInterpolatedString)
+                {
+                    // Verbatim interpolated strings (@$"...") escape quotes by doubling them.
+                    return rawText
+                        .Replace("\"", "\"\"");
                 }
 
                 var lines = rawText.Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.None);
