@@ -127,6 +127,24 @@ jobs:
             exit 1
           fi
 
+      - name: Resolve Mod Metadata
+        env:
+          MOD_REPO_DIR: ${{ inputs.mod_repo_dir }}
+          MOD_REF: ${{ inputs.mod_ref }}
+          WORKFLOW_MODE: ${{ inputs.workflow_mode }}
+        run: |
+          if [ "$WORKFLOW_MODE" = "sync" ]; then
+            short_ref="$(git -C "$MOD_REPO_DIR" rev-parse --short=8 HEAD)"
+          else
+            short_ref="${MOD_REF:0:8}"
+          fi
+
+          if [ -n "${GITHUB_ENV:-}" ]; then
+            echo "MOD_SHORT_REF=$short_ref" >> "$GITHUB_ENV"
+          else
+            echo "MOD_SHORT_REF=$short_ref"
+          fi
+
       - name: Run Localizer
         env:
           TRANSLATION_API_KEY: ${{ secrets.TRANSLATION_API_KEY }}
