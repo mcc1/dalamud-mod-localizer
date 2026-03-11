@@ -6,6 +6,10 @@ on:
       mod_name:
         required: true
         type: string
+      workflow_mode:
+        required: false
+        type: string
+        default: sync
       mod_version:
         required: true
         type: string
@@ -105,12 +109,23 @@ jobs:
             9.0.x
 
       - name: Clone Target Mod Repo
+        if: ${{ inputs.workflow_mode == 'sync' }}
         env:
           MOD_REPO_URL: ${{ inputs.mod_repo_url }}
           MOD_REF: ${{ inputs.mod_ref }}
           MOD_REPO_DIR: ${{ inputs.mod_repo_dir }}
         run: |
           ./.template/scripts/clone_mod.sh
+
+      - name: Validate Consumer Source
+        if: ${{ inputs.workflow_mode != 'sync' }}
+        env:
+          MOD_REPO_DIR: ${{ inputs.mod_repo_dir }}
+        run: |
+          if [ ! -d "$MOD_REPO_DIR" ]; then
+            echo "Expected consumer source directory '$MOD_REPO_DIR' to exist for workflow_mode='${{ inputs.workflow_mode }}'."
+            exit 1
+          fi
 
       - name: Run Localizer
         env:
@@ -169,6 +184,7 @@ jobs:
           fi
 
       - name: Prepare Dalamud Dependencies
+        if: ${{ inputs.workflow_mode != 'extract' }}
         env:
           DALAMUD_ASSET_URL: ${{ inputs.dalamud_asset_url }}
           DALAMUD_ASSETS_JSON_URL: ${{ inputs.dalamud_assets_json_url }}
@@ -177,12 +193,14 @@ jobs:
           ./.template/scripts/prepare_dalamud.sh
 
       - name: Build Mod
+        if: ${{ inputs.workflow_mode != 'extract' }}
         env:
           CI: true
         run: |
           dotnet build "${{ inputs.build_project_path }}" -c Release -p:CustomCS=true -p:EnableWindowsTargeting=true
 
       - name: Package Build
+        if: ${{ inputs.workflow_mode != 'extract' }}
         env:
           MOD_VERSION: ${{ inputs.mod_version }}
           ARTIFACT_BASENAME: ${{ inputs.artifact_basename }}
@@ -193,6 +211,7 @@ jobs:
           ./.template/scripts/package_build.sh
 
       - name: Upload Build Artifact
+        if: ${{ inputs.workflow_mode != 'extract' }}
         uses: actions/upload-artifact@v4
         with:
           name: ${{ inputs.artifact_basename }}-${{ inputs.mod_version }}-${{ env.MOD_SHORT_REF }}
@@ -200,7 +219,7 @@ jobs:
           if-no-files-found: error
 
       - name: Publish Release Asset
-        if: ${{ inputs.publish_release }}
+        if: ${{ inputs.workflow_mode != 'extract' && inputs.publish_release }}
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ env.RELEASE_TAG }}
@@ -209,7 +228,7 @@ jobs:
           generate_release_notes: true
 
       - name: Commit and Push
-        if: ${{ inputs.commit_changes }}
+        if: ${{ inputs.workflow_mode == 'sync' && inputs.commit_changes }}
         env:
           MOD_REPO_DIR: ${{ inputs.mod_repo_dir }}
         run: |
@@ -221,6 +240,7 @@ jobs:
           git add .
           if [ -n "$(git status --porcelain)" ]; then
             git commit -m "Auto-translate: Sync and processed source code"
+            git pull --rebase
             git push
           else
             echo "No changes to commit"

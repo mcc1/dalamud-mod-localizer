@@ -39,20 +39,66 @@
   預設值：`zh-TW.json`
   說明：翻譯字典檔路徑，可放在 repo 根目錄，也可給絕對路徑。
 
+## 執行模式
+
+共用 workflow 現在分成 3 種模式：
+
+1. `extract`
+2. `build`
+3. `sync`
+
+它們的用途不同，不要混用：
+
+- `extract`
+  - 使用 consumer repo 目前已有的 source snapshot
+  - 只跑 localizer，補漏字串到 `zh-TW.json`
+  - 不 build、不打包、不上傳 artifact
+- `build`
+  - 使用 consumer repo 目前已有的 source snapshot
+  - 跑 localizer、套 patch、build、package
+  - 不重新抓 upstream，也不回寫 source
+- `sync`
+  - 升版用
+  - 重新 clone pinned upstream
+  - 跑 localizer、套 patch、build、package
+  - 視設定決定是否 commit 產生出的 source snapshot
+
+對台版/陸版這種長時間停在同一個上游版本的情境：
+
+- 平常用 `extract` 或 `build`
+- 只有大版本更新時才用 `sync`
+
 ## 最小可用流程
 
-每個 mod 都照這個順序處理：
+### `extract`
+
+1. 使用 consumer repo 現有 source
+2. 設定 localizer 環境變數
+3. 跑翻譯器
+4. 更新字典
+
+### `build`
+
+1. 使用 consumer repo 現有 source
+2. 設定 localizer 環境變數
+3. 跑翻譯器
+4. 套 consumer patch
+5. 準備 Dalamud 編譯依賴
+6. `dotnet build`
+7. 打包 zip artifact
+
+### `sync`
 
 1. clone 上游 repo
 2. checkout 指定 `commit` 或 `tag`
 3. update submodules
 4. 設定 localizer 環境變數
 5. 跑翻譯器
-6. 準備 Dalamud 編譯依賴
-7. `dotnet build`
-8. 打包 zip artifact
-
-如果順序打亂，通常會在版本解析或缺 DLL 時爆掉。
+6. 套 consumer patch
+7. 準備 Dalamud 編譯依賴
+8. `dotnet build`
+9. 打包 zip artifact
+10. 視需要 commit source snapshot
 
 ## 你要替換的只有這些東西
 
@@ -135,6 +181,9 @@ jobs:
           dotnet-version: |
             8.0.x
             9.0.x
+
+      - name: Workflow Mode
+        run: echo "workflow_mode=sync"
 
       - name: Clone Mod
         run: |

@@ -14,16 +14,30 @@ This repository contains the shared layer extracted from the AutoRetainer-TW wor
 
 ## What It Does
 
-- clones a pinned upstream mod repository
-- runs the Roslyn-based string localizer
-- prepares pinned Dalamud dependencies
-- builds the plugin
-- packages a downloadable zip artifact
+The shared workflow now supports three operating modes:
+
+- `sync`
+  - clone a pinned upstream mod repository
+  - run the Roslyn-based string localizer
+  - apply consumer patches
+  - prepare pinned Dalamud dependencies
+  - build and package the plugin
+  - optionally commit the regenerated source snapshot back to the consumer repo
+- `build`
+  - use the consumer repo's existing source snapshot
+  - run the localizer against that snapshot
+  - apply consumer patches
+  - build and package without re-cloning upstream
+- `extract`
+  - use the consumer repo's existing source snapshot
+  - run the localizer only to refresh `zh-TW.json`
+  - skip build, packaging, artifact upload, and source sync
 
 ## Workflow Contract
 
 Consumer repositories pass these `workflow_call` inputs:
 
+- `workflow_mode`
 - `mod_name`
 - `mod_version`
 - `mod_repo_url`
@@ -63,6 +77,7 @@ jobs:
     uses: mcc1/dalamud-mod-localizer/.github/workflows/reusable-build-mod.yml@main
     secrets: inherit
     with:
+      workflow_mode: sync
       mod_name: AutoRetainer
       mod_version: "4.5.1.13"
       mod_repo_url: https://github.com/PunishXIV/AutoRetainer.git
@@ -91,6 +106,15 @@ jobs:
         InteropGenerator.Runtime.dll
         FFXIVClientStructs.dll
 ```
+
+Recommended mode usage:
+
+- `workflow_mode: extract`
+  - high-frequency dictionary collection while a new mod is still missing strings
+- `workflow_mode: build`
+  - normal day-to-day build/package runs against the consumer repo's current source
+- `workflow_mode: sync`
+  - upstream/base refresh only when you intentionally upgrade the pinned mod version
 
 ## Included Docs
 
