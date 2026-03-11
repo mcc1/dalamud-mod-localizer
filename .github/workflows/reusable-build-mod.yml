@@ -1,0 +1,168 @@
+name: Reusable Dalamud Mod Build
+
+on:
+  workflow_call:
+    inputs:
+      mod_name:
+        required: true
+        type: string
+      mod_version:
+        required: true
+        type: string
+      mod_repo_url:
+        required: true
+        type: string
+      mod_ref:
+        required: true
+        type: string
+      mod_repo_dir:
+        required: false
+        type: string
+        default: AutoRetainer
+      localizer_source_subpaths:
+        required: true
+        type: string
+      localizer_dict_path:
+        required: true
+        type: string
+      build_project_path:
+        required: true
+        type: string
+      package_build_dir:
+        required: true
+        type: string
+      artifact_basename:
+        required: true
+        type: string
+      release_tag_prefix:
+        required: true
+        type: string
+      package_include_patterns:
+        required: true
+        type: string
+      dalamud_asset_url:
+        required: true
+        type: string
+      dalamud_assets_json_url:
+        required: true
+        type: string
+      dalamud_required_files:
+        required: true
+        type: string
+      commit_changes:
+        required: false
+        type: boolean
+        default: true
+      publish_release:
+        required: false
+        type: boolean
+        default: false
+      template_repo:
+        required: false
+        type: string
+        default: mcc1/dalamud-mod-localizer
+      template_ref:
+        required: false
+        type: string
+        default: main
+
+jobs:
+  build-and-translate:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout Consumer Repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Checkout Shared Template
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ inputs.template_repo }}
+          ref: ${{ inputs.template_ref }}
+          path: .template
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            8.0.x
+            9.0.x
+
+      - name: Clone Target Mod Repo
+        env:
+          MOD_REPO_URL: ${{ inputs.mod_repo_url }}
+          MOD_REF: ${{ inputs.mod_ref }}
+          MOD_REPO_DIR: ${{ inputs.mod_repo_dir }}
+        run: |
+          ./.template/scripts/clone_mod.sh
+
+      - name: Run Localizer
+        env:
+          TRANSLATION_API_KEY: ${{ secrets.TRANSLATION_API_KEY }}
+          LOCALIZER_REPO_DIR: ${{ inputs.mod_repo_dir }}
+          LOCALIZER_SOURCE_SUBPATHS: ${{ inputs.localizer_source_subpaths }}
+          LOCALIZER_DICT_PATH: ${{ inputs.localizer_dict_path }}
+        run: |
+          dotnet run --project ./.template/AutoRetainerLocalizer.csproj
+
+      - name: Prepare Dalamud Dependencies
+        env:
+          DALAMUD_ASSET_URL: ${{ inputs.dalamud_asset_url }}
+          DALAMUD_ASSETS_JSON_URL: ${{ inputs.dalamud_assets_json_url }}
+          DALAMUD_REQUIRED_FILES: ${{ inputs.dalamud_required_files }}
+        run: |
+          ./.template/scripts/prepare_dalamud.sh
+
+      - name: Build Mod
+        env:
+          CI: true
+        run: |
+          dotnet build "${{ inputs.build_project_path }}" -c Release -p:CustomCS=true -p:EnableWindowsTargeting=true
+
+      - name: Package Build
+        env:
+          MOD_VERSION: ${{ inputs.mod_version }}
+          ARTIFACT_BASENAME: ${{ inputs.artifact_basename }}
+          PACKAGE_BUILD_DIR: ${{ inputs.package_build_dir }}
+          PACKAGE_INCLUDE_PATTERNS: ${{ inputs.package_include_patterns }}
+          RELEASE_TAG_PREFIX: ${{ inputs.release_tag_prefix }}
+        run: |
+          ./.template/scripts/package_build.sh
+
+      - name: Upload Build Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.artifact_basename }}-${{ inputs.mod_version }}-${{ env.MOD_SHORT_REF }}
+          path: ${{ env.PACKAGED_ZIP }}
+          if-no-files-found: error
+
+      - name: Publish Release Asset
+        if: ${{ inputs.publish_release }}
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.RELEASE_TAG }}
+          name: ${{ inputs.mod_name }} ${{ inputs.mod_version }} (${{ env.MOD_SHORT_REF }})
+          files: ${{ env.PACKAGED_ZIP }}
+          generate_release_notes: true
+
+      - name: Commit and Push
+        if: ${{ inputs.commit_changes }}
+        env:
+          MOD_REPO_DIR: ${{ inputs.mod_repo_dir }}
+        run: |
+          rm -rf .template
+          git rm -r --cached "$MOD_REPO_DIR" || true
+          rm -rf "$MOD_REPO_DIR/.git"
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add .
+          if [ -n "$(git status --porcelain)" ]; then
+            git commit -m "Auto-translate: Sync and processed source code"
+            git push
+          else
+            echo "No changes to commit"
+          fi
