@@ -65,6 +65,10 @@ on:
         required: false
         type: string
         default: main
+      translation_smoke_test_patterns:
+        required: false
+        type: string
+        default: ""
 
 jobs:
   build-and-translate:
@@ -112,6 +116,30 @@ jobs:
           LOCALIZER_DICT_PATH: ${{ inputs.localizer_dict_path }}
         run: |
           dotnet run --project ./.template/DalamudModLocalizer.csproj
+
+      - name: Verify Translation Smoke Test
+        if: ${{ inputs.translation_smoke_test_patterns != '' }}
+        env:
+          MOD_REPO_DIR: ${{ inputs.mod_repo_dir }}
+          TRANSLATION_SMOKE_TEST_PATTERNS: ${{ inputs.translation_smoke_test_patterns }}
+        run: |
+          missing=0
+          while IFS= read -r pattern; do
+            if [ -z "$pattern" ]; then
+              continue
+            fi
+            if rg -F --quiet --glob '*.cs' --glob '*.json' --glob '*.md' "$pattern" "$MOD_REPO_DIR"; then
+              echo "Verified translated pattern: $pattern"
+            else
+              echo "Missing translated pattern: $pattern"
+              missing=1
+            fi
+          done < <(printf '%s\n' "$TRANSLATION_SMOKE_TEST_PATTERNS")
+
+          if [ "$missing" -ne 0 ]; then
+            echo "Translation smoke test failed."
+            exit 1
+          fi
 
       - name: Prepare Dalamud Dependencies
         env:
