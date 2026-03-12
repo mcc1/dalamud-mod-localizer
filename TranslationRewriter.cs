@@ -194,6 +194,27 @@ namespace Localizer
                     }
                 }
 
+                foreach (var property in json.Properties().ToList())
+                {
+                    if (property.Value.Type != JTokenType.String)
+                    {
+                        continue;
+                    }
+
+                    var currentValue = property.Value.Value<string>();
+                    if (string.IsNullOrWhiteSpace(currentValue) || currentValue != property.Name)
+                    {
+                        continue;
+                    }
+
+                    var seeded = BuildSeedTranslationValue(property.Name);
+                    if (!string.Equals(seeded, currentValue, StringComparison.Ordinal))
+                    {
+                        property.Value = seeded;
+                        added = true;
+                    }
+                }
+
                 if (added)
                 {
                     // 使用 Indented 格式讓 JSON 易於閱讀
