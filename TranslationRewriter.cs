@@ -18,6 +18,79 @@ namespace Localizer
         private readonly Dictionary<string, string> _dictionary;
         private readonly HashSet<string> _knownTexts;
         private readonly string _jsonPath;
+        private static readonly (string From, string To)[] SeedReplacements =
+        {
+            ("感谢", "感謝"),
+            ("这个", "這個"),
+            ("插件", "插件"),
+            ("生产", "生產"),
+            ("开发", "開發"),
+            ("开始", "開始"),
+            ("了解", "了解"),
+            ("关键", "關鍵"),
+            ("自动", "自動"),
+            ("内置", "內建"),
+            ("建议", "建議"),
+            ("默认", "預設"),
+            ("设置", "設定"),
+            ("插件设置", "插件設定"),
+            ("按钮", "按鈕"),
+            ("点击", "點擊"),
+            ("单击", "點擊"),
+            ("下拉框", "下拉選單"),
+            ("下拉列表", "下拉選單"),
+            ("窗口", "視窗"),
+            ("菜单", "選單"),
+            ("创建", "建立"),
+            ("启用", "啟用"),
+            ("耐力模式", "耐力模式"),
+            ("配方", "配方"),
+            ("选择", "選擇"),
+            ("重复", "重複"),
+            ("药水", "藥水"),
+            ("维修", "修理"),
+            ("无法", "無法"),
+            ("运作", "運作"),
+            ("获取", "取得"),
+            ("导入", "匯入"),
+            ("导出", "匯出"),
+            ("复制", "複製"),
+            ("贴", "貼"),
+            ("缓冲", "緩衝"),
+            ("缓存", "快取"),
+            ("关于", "關於"),
+            ("图标", "圖示"),
+            ("热键栏", "快速鍵欄"),
+            ("解锁", "解鎖"),
+            ("选中", "選中"),
+            ("选项卡", "分頁"),
+            ("模拟器", "模擬器"),
+            ("问题", "問題"),
+            ("没有", "沒有"),
+            ("还有", "還有"),
+            ("能够", "能夠"),
+            ("它会", "它會"),
+            ("并且", "並且"),
+            ("并", "並"),
+            ("会", "會"),
+            ("为", "為"),
+            ("后", "後"),
+            ("与", "與"),
+            ("仅", "僅"),
+            ("让", "讓"),
+            ("个", "個"),
+            ("从", "從"),
+            ("时", "時"),
+            ("动", "動"),
+            ("层", "層"),
+            ("这", "這"),
+            ("该", "該"),
+            ("将", "將"),
+            ("后置", "後置"),
+            ("艺一点", "藝一點"),
+            ("“", "「"),
+            ("”", "」")
+        };
         // 使用 HashSet 確保單次運行中，同一個新字串只會被記錄一次
         public HashSet<string> MissingTranslations { get; } = new HashSet<string>();
 
@@ -92,8 +165,12 @@ namespace Localizer
                 {
                     if (json[key] == null)
                     {
-                        // 預設將 Value 設為 Key，方便後續搜尋與翻譯
-                        json[key] = key;
+                        json[key] = BuildSeedTranslationValue(key);
+                        added = true;
+                    }
+                    else if (json[key]?.Type == JTokenType.String && json[key]!.Value<string>() == key)
+                    {
+                        json[key] = BuildSeedTranslationValue(key);
                         added = true;
                     }
                 }
@@ -365,6 +442,26 @@ namespace Localizer
         {
             if (string.IsNullOrEmpty(text)) return text;
             return Regex.Replace(text, @"\s+", " ").Trim();
+        }
+
+        private string BuildSeedTranslationValue(string text)
+        {
+            if (string.IsNullOrWhiteSpace(text))
+            {
+                return text;
+            }
+
+            var seeded = text.Replace("\r\n", "\n").Replace('\r', '\n');
+            foreach (var (from, to) in SeedReplacements)
+            {
+                seeded = seeded.Replace(from, to, StringComparison.Ordinal);
+            }
+
+            seeded = Regex.Replace(seeded, @"(?<=[\p{IsCJKUnifiedIdeographs}])(?=(Artisan|Dalamud|Teamcraft|Raphael|Discord|GitHub|NPC|HQ|NQ|CPU|ID|Allagan Tools|Universalis)\b)", " ");
+            seeded = Regex.Replace(seeded, @"(?<=\b(Artisan|Dalamud|Teamcraft|Raphael|Discord|GitHub|NPC|HQ|NQ|CPU|ID|Allagan Tools|Universalis))(?=[\p{IsCJKUnifiedIdeographs}])", " ");
+            seeded = Regex.Replace(seeded, @"\s+", " ").Trim();
+            seeded = seeded.Replace("。\n", "。\n").Replace(" \n", "\n");
+            return seeded;
         }
 
         private bool LooksLikeNonTranslatableText(string text)
