@@ -706,7 +706,7 @@ namespace Localizer
             out List<InterpolationSyntax> interpolations)
         {
             var sb = new StringBuilder();
-            interpolations = new List<InterpolationSyntax>();
+            var collectedInterpolations = new List<InterpolationSyntax>();
             var placeholderIndex = 0;
 
             bool VisitPart(ExpressionSyntax expr)
@@ -728,7 +728,7 @@ namespace Localizer
                             else if (content is InterpolationSyntax interpolation)
                             {
                                 sb.Append($"{{{placeholderIndex++}}}");
-                                interpolations.Add(interpolation);
+                                collectedInterpolations.Add(interpolation);
                             }
                         }
                         return true;
@@ -747,6 +747,7 @@ namespace Localizer
             }
 
             template = NormalizeMissingKey(sb.ToString());
+            interpolations = collectedInterpolations;
             return !string.IsNullOrWhiteSpace(template);
         }
 
