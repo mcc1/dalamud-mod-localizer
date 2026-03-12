@@ -21,6 +21,15 @@ namespace Localizer
         private readonly string _jsonPath;
         private static readonly (string From, string To)[] SeedReplacements =
         {
+            ("Processing List", "處理清單"),
+            ("Now Processing: {0}", "目前處理中：{0}"),
+            ("Crafting: {0}", "製作中：{0}"),
+            ("Current Item Progress: {0} / {1}", "目前項目進度：{0} / {1}"),
+            ("Overall List Progress: {0} / {1}", "整體清單進度：{0} / {1}"),
+            ("Approximate Remaining Duration: {0}", "預估剩餘時間：{0}"),
+            ("Pause", "暫停"),
+            ("Resume", "繼續"),
+            ("Cancel", "取消"),
             ("感谢", "感謝"),
             ("这个", "這個"),
             ("插件", "插件"),
