@@ -276,6 +276,26 @@ namespace Localizer
             return base.VisitLiteralExpression(node);
         }
 
+        public override SyntaxNode VisitBinaryExpression(BinaryExpressionSyntax node)
+        {
+            if (node.IsKind(SyntaxKind.AddExpression) &&
+                !IsNestedStringConcatenation(node) &&
+                TryExtractStringTemplate(node, out var templateKey, out var interpolations))
+            {
+                if (ShouldTranslate(node, templateKey))
+                {
+                    if (TryGetTranslation(templateKey, out var translated))
+                    {
+                        return ReconstructInterpolatedString(node, translated, interpolations);
+                    }
+
+                    return node;
+                }
+            }
+
+            return base.VisitBinaryExpression(node);
+        }
+
         // --- 輔助判斷方法 ---
 
         private bool ShouldTranslate(SyntaxNode node, string text)
@@ -674,6 +694,62 @@ namespace Localizer
             return invocation.Expression.ToString();
         }
 
+        private bool IsNestedStringConcatenation(BinaryExpressionSyntax node)
+        {
+            return node.Parent is BinaryExpressionSyntax parent &&
+                   parent.IsKind(SyntaxKind.AddExpression);
+        }
+
+        private bool TryExtractStringTemplate(
+            ExpressionSyntax expression,
+            out string template,
+            out List<InterpolationSyntax> interpolations)
+        {
+            var sb = new StringBuilder();
+            interpolations = new List<InterpolationSyntax>();
+            var placeholderIndex = 0;
+
+            bool VisitPart(ExpressionSyntax expr)
+            {
+                switch (expr)
+                {
+                    case ParenthesizedExpressionSyntax parenthesized:
+                        return VisitPart(parenthesized.Expression);
+                    case LiteralExpressionSyntax literal when literal.IsKind(SyntaxKind.StringLiteralExpression):
+                        sb.Append(NormalizeLiteralText(literal.Token.ValueText));
+                        return true;
+                    case InterpolatedStringExpressionSyntax interpolated:
+                        foreach (var content in interpolated.Contents)
+                        {
+                            if (content is InterpolatedStringTextSyntax text)
+                            {
+                                sb.Append(text.TextToken.ValueText);
+                            }
+                            else if (content is InterpolationSyntax interpolation)
+                            {
+                                sb.Append($"{{{placeholderIndex++}}}");
+                                interpolations.Add(interpolation);
+                            }
+                        }
+                        return true;
+                    case BinaryExpressionSyntax binary when binary.IsKind(SyntaxKind.AddExpression):
+                        return VisitPart(binary.Left) && VisitPart(binary.Right);
+                    default:
+                        return false;
+                }
+            }
+
+            if (!VisitPart(expression))
+            {
+                template = string.Empty;
+                interpolations = new List<InterpolationSyntax>();
+                return false;
+            }
+
+            template = NormalizeMissingKey(sb.ToString());
+            return !string.IsNullOrWhiteSpace(template);
+        }
+
         private SyntaxNode ReconstructInterpolatedString(InterpolatedStringExpressionSyntax node, string translatedTemplate, List<InterpolationSyntax> interpolations)
         {
             var contents = new List<InterpolatedStringContentSyntax>();
@@ -761,6 +837,57 @@ namespace Localizer
                 node.StringEndToken)
                 .WithLeadingTrivia(node.GetLeadingTrivia())   // 前導空格
                 .WithTrailingTrivia(node.GetTrailingTrivia()); // 後繼空格
+        }
+
+        private SyntaxNode ReconstructInterpolatedString(BinaryExpressionSyntax node, string translatedTemplate, List<InterpolationSyntax> interpolations)
+        {
+            var contents = new List<InterpolatedStringContentSyntax>();
+            var matches = Regex.Matches(translatedTemplate, @"\{(\d+)\}");
+            var lastIndex = 0;
+
+            static string EscapeText(string rawText)
+            {
+                return rawText
+                    .Replace("\\", "\\\\")
+                    .Replace("\"", "\\\"")
+                    .Replace("\r", "\\r")
+                    .Replace("\n", "\\n")
+                    .Replace("\t", "\\t");
+            }
+
+            foreach (Match match in matches)
+            {
+                if (match.Index > lastIndex)
+                {
+                    var textPart = translatedTemplate.Substring(lastIndex, match.Index - lastIndex);
+                    var escaped = EscapeText(textPart);
+                    contents.Add(SyntaxFactory.InterpolatedStringText(
+                        SyntaxFactory.Token(SyntaxFactory.TriviaList(), SyntaxKind.InterpolatedStringTextToken, escaped, textPart, SyntaxFactory.TriviaList())));
+                }
+
+                var idx = int.Parse(match.Groups[1].Value);
+                if (idx < interpolations.Count)
+                {
+                    contents.Add(interpolations[idx]);
+                }
+
+                lastIndex = match.Index + match.Length;
+            }
+
+            if (lastIndex < translatedTemplate.Length)
+            {
+                var rest = translatedTemplate.Substring(lastIndex);
+                var escaped = EscapeText(rest);
+                contents.Add(SyntaxFactory.InterpolatedStringText(
+                    SyntaxFactory.Token(SyntaxFactory.TriviaList(), SyntaxKind.InterpolatedStringTextToken, escaped, rest, SyntaxFactory.TriviaList())));
+            }
+
+            return SyntaxFactory.InterpolatedStringExpression(
+                SyntaxFactory.Token(SyntaxFactory.TriviaList(), SyntaxKind.InterpolatedStringStartToken, "$\"", "$\"", SyntaxFactory.TriviaList()),
+                SyntaxFactory.List(contents),
+                SyntaxFactory.Token(SyntaxFactory.TriviaList(), SyntaxKind.InterpolatedStringEndToken, "\"", "\"", SyntaxFactory.TriviaList()))
+                .WithLeadingTrivia(node.GetLeadingTrivia())
+                .WithTrailingTrivia(node.GetTrailingTrivia());
         }
     }
 }
