@@ -16,6 +16,7 @@ namespace Localizer
     public class TranslationRewriter : CSharpSyntaxRewriter
     {
         private readonly Dictionary<string, string> _dictionary;
+        private readonly Dictionary<string, string> _normalizedLookup;
         private readonly HashSet<string> _knownTexts;
         private readonly string _jsonPath;
         private static readonly (string From, string To)[] SeedReplacements =
@@ -101,6 +102,7 @@ namespace Localizer
         {
             _dictionary = dictionary;
             _jsonPath = jsonPath;
+            _normalizedLookup = BuildNormalizedLookup(dictionary);
             _knownTexts = BuildKnownTexts(dictionary);
         }
 
@@ -114,19 +116,27 @@ namespace Localizer
                 return false;
             }
 
-            // 嘗試三種匹配模式
+            var lookupKey = NormalizeLookupKey(original);
+            var (_, suffix) = SplitImGuiLabel(original);
+
             if (_dictionary.TryGetValue(original, out translated) ||
                 _dictionary.TryGetValue(original.Trim(), out translated) ||
-                _dictionary.TryGetValue(NormalizeKey(original), out translated))
+                _dictionary.TryGetValue(NormalizeKey(original), out translated) ||
+                _normalizedLookup.TryGetValue(lookupKey, out translated))
             {
                 translated = DecodeTranslationEscapes(translated);
+                if (!string.IsNullOrEmpty(suffix) && !translated.Contains("###", StringComparison.Ordinal))
+                {
+                    translated += suffix;
+                }
                 return true;
             }
 
             // If the current source already contains a translated string, do not re-add it as a new key.
             if (_knownTexts.Contains(original) ||
                 _knownTexts.Contains(original.Trim()) ||
-                _knownTexts.Contains(NormalizeKey(original)))
+                _knownTexts.Contains(NormalizeKey(original)) ||
+                _knownTexts.Contains(lookupKey))
             {
                 translated = original;
                 return false;
@@ -135,7 +145,7 @@ namespace Localizer
             // 若找不到翻譯，記錄到缺失清單
             if (!_dictionary.ContainsKey(original))
             {
-                MissingTranslations.Add(original);
+                MissingTranslations.Add(NormalizeMissingKey(original));
             }
             return false;
         }
@@ -444,6 +454,45 @@ namespace Localizer
             return Regex.Replace(text, @"\s+", " ").Trim();
         }
 
+        private string NormalizeLookupKey(string text)
+        {
+            var (visible, _) = SplitImGuiLabel(text);
+            return NormalizeInterpolationTemplate(NormalizeKey(visible));
+        }
+
+        private string NormalizeMissingKey(string text)
+        {
+            var (visible, _) = SplitImGuiLabel(text);
+            return NormalizeInterpolationTemplate(NormalizeLiteralText(visible));
+        }
+
+        private (string Visible, string Suffix) SplitImGuiLabel(string text)
+        {
+            if (string.IsNullOrEmpty(text))
+            {
+                return (text, string.Empty);
+            }
+
+            var index = text.IndexOf("###", StringComparison.Ordinal);
+            if (index < 0)
+            {
+                return (text, string.Empty);
+            }
+
+            return (text[..index], text[index..]);
+        }
+
+        private string NormalizeInterpolationTemplate(string text)
+        {
+            if (string.IsNullOrEmpty(text) || !text.Contains('{'))
+            {
+                return text;
+            }
+
+            var placeholderIndex = 0;
+            return Regex.Replace(text, @"\{[^{}]+\}", _ => $"{{{placeholderIndex++}}}");
+        }
+
         private string BuildSeedTranslationValue(string text)
         {
             if (string.IsNullOrWhiteSpace(text))
@@ -572,6 +621,22 @@ namespace Localizer
             knownTexts.Add(text);
             knownTexts.Add(text.Trim());
             knownTexts.Add(NormalizeKey(text));
+            knownTexts.Add(NormalizeLookupKey(text));
+        }
+
+        private Dictionary<string, string> BuildNormalizedLookup(Dictionary<string, string> dictionary)
+        {
+            var lookup = new Dictionary<string, string>();
+            foreach (var pair in dictionary)
+            {
+                var key = NormalizeLookupKey(pair.Key);
+                if (!string.IsNullOrWhiteSpace(key) && !lookup.ContainsKey(key))
+                {
+                    lookup[key] = pair.Value;
+                }
+            }
+
+            return lookup;
         }
 
         private string GetMethodName(InvocationExpressionSyntax invocation)
