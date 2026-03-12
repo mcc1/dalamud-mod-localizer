@@ -257,13 +257,15 @@ jobs:
           generate_release_notes: true
 
       - name: Commit and Push
-        if: ${{ inputs.workflow_mode == 'sync' && inputs.commit_changes }}
+        if: ${{ (inputs.workflow_mode == 'sync' || inputs.workflow_mode == 'extract') && inputs.commit_changes }}
         env:
           MOD_REPO_DIR: ${{ inputs.mod_repo_dir }}
         run: |
           rm -rf .template
-          git rm -r --cached "$MOD_REPO_DIR" || true
-          rm -rf "$MOD_REPO_DIR/.git"
+          if [ "${{ inputs.workflow_mode }}" = "sync" ]; then
+            git rm -r --cached "$MOD_REPO_DIR" || true
+            rm -rf "$MOD_REPO_DIR/.git"
+          fi
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           git add .
