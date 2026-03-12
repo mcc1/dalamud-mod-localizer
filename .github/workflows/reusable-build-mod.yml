@@ -256,6 +256,13 @@ jobs:
           files: ${{ env.PACKAGED_ZIP }}
           generate_release_notes: true
 
+      - name: Revert Source Changes For Extract
+        if: ${{ inputs.workflow_mode == 'extract' }}
+        env:
+          MOD_REPO_DIR: ${{ inputs.mod_repo_dir }}
+        run: |
+          git checkout -- "$MOD_REPO_DIR"
+
       - name: Commit and Push
         if: ${{ (inputs.workflow_mode == 'sync' || inputs.workflow_mode == 'extract') && inputs.commit_changes }}
         env:

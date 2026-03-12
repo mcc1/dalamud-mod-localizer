@@ -164,8 +164,6 @@ namespace Localizer
         /// </summary>
         public void SaveMissingTranslations()
         {
-            if (MissingTranslations.Count == 0) return;
-
             try
             {
                 JObject json;
