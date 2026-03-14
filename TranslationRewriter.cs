@@ -304,6 +304,13 @@ namespace Localizer
 
             if (text.StartsWith("##") || text.StartsWith("Component") || text.StartsWith("\\u")) return false;
             if (LooksLikeNonTranslatableText(text)) return false;
+            if (IsCommandHelpArgument(node)) return true;
+            if (IsHelpMessageAssignment(node)) return true;
+            if (IsMenuItemText(node)) return true;
+            if (IsSeStringBuilderText(node)) return true;
+            if (IsDisplayMapText(node, text)) return true;
+            if (IsBaseConstructorTitle(node, text)) return true;
+
             var invocations = node.Ancestors().OfType<InvocationExpressionSyntax>().ToList();
 
             foreach (var invocation in invocations)
@@ -311,12 +318,6 @@ namespace Localizer
                 string methodName = GetMethodName(invocation);
                 if (_blackList.Any(b => methodName.Equals(b, StringComparison.OrdinalIgnoreCase))) return false;
             }
-
-            if (IsCommandHelpArgument(node)) return true;
-            if (IsHelpMessageAssignment(node)) return true;
-            if (IsMenuItemText(node)) return true;
-            if (IsDisplayMapText(node, text)) return true;
-            if (IsBaseConstructorTitle(node, text)) return true;
 
             foreach (var invocation in invocations)
             {
@@ -482,6 +483,16 @@ namespace Localizer
 
             return node.Ancestors().OfType<ObjectCreationExpressionSyntax>().Any(x =>
                 x.Type.ToString().EndsWith("MenuItem", StringComparison.Ordinal));
+        }
+
+        private bool IsSeStringBuilderText(SyntaxNode node)
+        {
+            return node.Ancestors().OfType<InvocationExpressionSyntax>().Any(x =>
+            {
+                var methodName = GetMethodName(x);
+                return methodName.Equals("AddText", StringComparison.Ordinal) ||
+                       methodName.Equals("AddUiForeground", StringComparison.Ordinal);
+            });
         }
 
         private bool IsHumanText(string text)
