@@ -26,6 +26,9 @@ on:
         required: false
         type: string
         default: master
+    secrets:
+      gitlab_push_token:
+        required: true
 
 jobs:
   sync-repo-json:
@@ -58,7 +61,9 @@ jobs:
 
       - name: Push repo.json to GitLab Pages repo
         run: |
-          git clone --branch "${{ inputs.gitlab_repo_branch }}" "${{ inputs.gitlab_repo_url }}" gitlab-pages
+          authenticated_url="${{ inputs.gitlab_repo_url }}"
+          authenticated_url="${authenticated_url/https:\/\//https:\/\/oauth2:${{ secrets.gitlab_push_token }}@}"
+          git clone --branch "${{ inputs.gitlab_repo_branch }}" "$authenticated_url" gitlab-pages
           cp "${{ inputs.repo_json_path }}" gitlab-pages/repo.json
 
           cd gitlab-pages
