@@ -1,0 +1,75 @@
+name: Reusable Repo.json Sync
+
+on:
+  workflow_call:
+    inputs:
+      template_repo:
+        required: false
+        type: string
+        default: mcc1/dalamud-mod-localizer
+      template_ref:
+        required: false
+        type: string
+        default: main
+      repo_sources_path:
+        required: false
+        type: string
+        default: plugins.sources.json
+      repo_json_path:
+        required: false
+        type: string
+        default: repo.json
+      gitlab_repo_url:
+        required: true
+        type: string
+      gitlab_repo_branch:
+        required: false
+        type: string
+        default: master
+
+jobs:
+  sync-repo-json:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout Consumer Repo
+        uses: actions/checkout@v4
+
+      - name: Checkout Shared Template
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ inputs.template_repo }}
+          ref: ${{ inputs.template_ref }}
+          path: .template
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Generate repo.json
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          REPO_SOURCES_PATH: ${{ inputs.repo_sources_path }}
+          REPO_JSON_PATH: ${{ inputs.repo_json_path }}
+        run: |
+          python .template/scripts/sync_repo.py
+
+      - name: Push repo.json to GitLab Pages repo
+        run: |
+          git clone --branch "${{ inputs.gitlab_repo_branch }}" "${{ inputs.gitlab_repo_url }}" gitlab-pages
+          cp "${{ inputs.repo_json_path }}" gitlab-pages/repo.json
+
+          cd gitlab-pages
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add repo.json
+
+          if git diff --cached --quiet; then
+            echo "No repo.json changes to push."
+            exit 0
+          fi
+
+          git commit -m "chore: sync repo.json from $GITHUB_REPOSITORY@$GITHUB_SHA"
+          git push origin "${{ inputs.gitlab_repo_branch }}"
