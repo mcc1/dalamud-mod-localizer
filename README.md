@@ -10,7 +10,9 @@ This repository contains the shared layer extracted from the AutoRetainer-TW wor
 - `scripts/clone_mod.sh`
 - `scripts/prepare_dalamud.sh`
 - `scripts/package_build.sh`
+- `scripts/sync_repo.py`
 - `.github/workflows/reusable-build-mod.yml`
+- `.github/workflows/reusable-sync-repo-json.yml`
 
 ## What It Does
 
@@ -60,6 +62,39 @@ Optional flags:
 - `publish_release`
 - `template_repo`
 - `template_ref`
+
+Consumer repositories can also call `.github/workflows/reusable-sync-repo-json.yml` to:
+
+- generate a full `repo.json` from `plugins.sources.json`
+- push the refreshed `repo.json` into a GitLab Pages repository
+
+That reusable workflow expects:
+
+- inputs:
+  - `gitlab_repo_url`
+  - `gitlab_repo_branch`
+  - `repo_sources_path`
+  - `repo_json_path`
+- secret:
+  - `gitlab_push_token`
+
+Recommended consumer secret name:
+
+- `GITLAB_PUSH_TOKEN`
+
+Typical consumer call pattern:
+
+```yaml
+  sync-gitlab-pages:
+    uses: mcc1/dalamud-mod-localizer/.github/workflows/reusable-sync-repo-json.yml@main
+    with:
+      gitlab_repo_url: https://git.example.com/group/plugin-feed.git
+      gitlab_repo_branch: master
+      repo_sources_path: plugins.sources.json
+      repo_json_path: repo.json
+    secrets:
+      gitlab_push_token: ${{ secrets.GITLAB_PUSH_TOKEN }}
+```
 
 ## Runtime Assumptions
 

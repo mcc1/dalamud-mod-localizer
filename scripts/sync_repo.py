@@ -44,7 +44,7 @@ def http_get_json(url: str, token: str | None = None):
         headers={
             "Accept": "application/vnd.github+json",
             **({"Authorization": f"Bearer {token}"} if token else {}),
-            "User-Agent": "DalamudPlugins-zhTW-sync",
+            "User-Agent": "repo-json-sync",
         },
     )
     with urllib.request.urlopen(req) as resp:
@@ -57,7 +57,7 @@ def http_get_bytes(url: str, token: str | None = None) -> bytes:
         headers={
             "Accept": "application/octet-stream",
             **({"Authorization": f"Bearer {token}"} if token else {}),
-            "User-Agent": "DalamudPlugins-zhTW-sync",
+            "User-Agent": "repo-json-sync",
         },
     )
     with urllib.request.urlopen(req) as resp:
