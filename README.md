@@ -82,6 +82,11 @@ Recommended consumer secret name:
 
 - `GITLAB_PUSH_TOKEN`
 
+Required reminder for new consumer repos:
+
+- if the repo uses `reusable-sync-repo-json.yml`, you must add `GITLAB_PUSH_TOKEN` to the consumer repo's GitHub Actions secrets before expecting `repo.json` sync to GitLab to work
+- the token must be valid for the target GitLab repo and have repository read/write access
+
 Typical consumer call pattern:
 
 ```yaml
@@ -95,6 +100,8 @@ Typical consumer call pattern:
     secrets:
       gitlab_push_token: ${{ secrets.GITLAB_PUSH_TOKEN }}
 ```
+
+If `GITLAB_PUSH_TOKEN` is missing, expired, or lacks scope, the consumer repo will still build and publish GitHub releases, but the final GitLab push step will fail with `HTTP Basic: Access denied`.
 
 ## Runtime Assumptions
 

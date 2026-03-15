@@ -114,6 +114,14 @@
 8. `required_files` 清單
 9. `DALAMUD_ASSET_URL`
 
+如果 consumer repo 還要把 `repo.json` 同步到 GitLab plugin feed，另外還要記得：
+
+1. 在 consumer repo 的 GitHub Actions secrets 新增 `GITLAB_PUSH_TOKEN`
+2. token 必須能存取目標 GitLab repo
+3. token 至少要有 repository read/write 權限
+
+少了這個 token，不會影響 GitHub 上的 build 或 release，但最後的 GitLab sync 會直接失敗，常見訊息是 `HTTP Basic: Access denied`。
+
 ## 為什麼一定要 pin 版本
 
 這個框架的前提不是「永遠抓最新」，而是「翻譯與建置都建立在可重現版本上」。
