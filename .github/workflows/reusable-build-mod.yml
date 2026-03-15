@@ -29,6 +29,10 @@ on:
       localizer_dict_path:
         required: true
         type: string
+      run_localizer:
+        required: false
+        type: boolean
+        default: true
       build_project_path:
         required: true
         type: string
@@ -150,6 +154,7 @@ jobs:
           fi
 
       - name: Run Localizer
+        if: ${{ inputs.run_localizer }}
         env:
           TRANSLATION_API_KEY: ${{ secrets.TRANSLATION_API_KEY }}
           LOCALIZER_REPO_DIR: ${{ inputs.mod_repo_dir }}
