@@ -32,6 +32,10 @@ on:
       build_project_path:
         required: true
         type: string
+      custom_cs:
+        required: false
+        type: boolean
+        default: true
       package_build_dir:
         required: true
         type: string
@@ -225,8 +229,9 @@ jobs:
         if: ${{ inputs.workflow_mode != 'extract' }}
         env:
           CI: true
+          BUILD_CUSTOM_CS: ${{ inputs.custom_cs && 'true' || 'false' }}
         run: |
-          dotnet build "${{ inputs.build_project_path }}" -c Release -p:CustomCS=true -p:EnableWindowsTargeting=true
+          dotnet build "${{ inputs.build_project_path }}" -c Release -p:CustomCS="$BUILD_CUSTOM_CS" -p:EnableWindowsTargeting=true
 
       - name: Package Build
         if: ${{ inputs.workflow_mode != 'extract' }}
