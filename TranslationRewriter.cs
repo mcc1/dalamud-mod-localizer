@@ -301,6 +301,7 @@ namespace Localizer
         private bool ShouldTranslate(SyntaxNode node, string text)
         {
             if (string.IsNullOrWhiteSpace(text)) return false;
+            if (IsPlaceholderOnlyTemplate(text)) return false;
 
             if (text.StartsWith("##") || text.StartsWith("Component") || text.StartsWith("\\u")) return false;
             if (LooksLikeNonTranslatableText(text)) return false;
@@ -567,9 +568,24 @@ namespace Localizer
 
             seeded = Regex.Replace(seeded, @"(?<=[\p{IsCJKUnifiedIdeographs}])(?=(Artisan|Dalamud|Teamcraft|Raphael|Discord|GitHub|NPC|HQ|NQ|CPU|ID|Allagan Tools|Universalis)\b)", " ");
             seeded = Regex.Replace(seeded, @"(?<=\b(Artisan|Dalamud|Teamcraft|Raphael|Discord|GitHub|NPC|HQ|NQ|CPU|ID|Allagan Tools|Universalis))(?=[\p{IsCJKUnifiedIdeographs}])", " ");
-            seeded = Regex.Replace(seeded, @"\s+", " ").Trim();
-            seeded = seeded.Replace("。\n", "。\n").Replace(" \n", "\n");
+            var lines = seeded.Split('\n');
+            for (var i = 0; i < lines.Length; i++)
+            {
+                lines[i] = Regex.Replace(lines[i], @"[^\S\n]+", " ").Trim();
+            }
+            seeded = string.Join("\n", lines);
             return seeded;
+        }
+
+        private bool IsPlaceholderOnlyTemplate(string text)
+        {
+            if (string.IsNullOrWhiteSpace(text))
+            {
+                return false;
+            }
+
+            var withoutPlaceholders = Regex.Replace(text, @"\{\d+\}", string.Empty);
+            return string.IsNullOrWhiteSpace(withoutPlaceholders);
         }
 
         private bool LooksLikeNonTranslatableText(string text)
