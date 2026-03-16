@@ -68,6 +68,33 @@
 - 平常用 `extract` 或 `build`
 - 只有大版本更新時才用 `sync`
 
+## Consumer 翻譯硬規則
+
+下面這幾條不是建議，而是 consumer 維護時的硬規則：
+
+1. 不可以直接改 committed source 然後把修改只留在 source snapshot。
+2. 能靠 `extract`、字典、shared localizer 解決的翻譯，不可以先改 source。
+3. 只有在下列情況才可以動 source：
+   - 功能修正
+   - localizer 目前抓不到的 UI 字串形狀
+   - 第三方共用 UI 元件的硬編碼提示字
+4. 只要翻譯修改必須直接動 source，就必須立刻整理成 consumer patch，不能只存在於當前 snapshot。
+5. 每一個「因翻譯而需要 source patch」的修改，都必須同步記錄下來。
+
+必記錄內容至少包含：
+
+- 為什麼字典 / localizer 不足以處理
+- 實際修改了哪些檔案
+- 修的是哪個畫面、下拉選單、tooltip、按鈕或提示字
+- 這個 patch 是長期保留，還是未來應回推到 shared localizer
+
+如果沒有做到上面兩件事：
+
+- 沒轉成 `.consumer-patches/`
+- 沒寫進維護記錄
+
+那就不能算完成。因為下一次 `sync` 或升版時，這些修改會被 workflow 蓋掉。
+
 ## 最小可用流程
 
 ### `extract`
@@ -82,7 +109,7 @@
 1. 使用 consumer repo 現有 source
 2. 設定 localizer 環境變數
 3. 跑翻譯器
-4. 套 consumer patch
+4. 將所有必要 source 修正維持在 consumer patch 中
 5. 準備 Dalamud 編譯依賴
 6. `dotnet build`
 7. 打包 zip artifact
@@ -99,6 +126,12 @@
 8. `dotnet build`
 9. 打包 zip artifact
 10. 視需要 commit source snapshot
+
+注意：
+
+- `sync` 會重建 source snapshot
+- 所有沒有進 patch 層的 direct source translation changes 都會消失
+- 所以任何翻譯用 source 修正，都必須先 patch 化再談升版
 
 ## 你要替換的只有這些東西
 

@@ -177,6 +177,24 @@ Recommended mode usage:
 
 Do not treat the committed source snapshot as the real patch base.
 
+Hard rules for consumer maintenance:
+
+- do not directly edit committed consumer source and leave the change only in the source snapshot
+- if a translation cannot be handled by `extract`/dictionary/localizer and requires source changes, that translation must be converted into a consumer patch
+- every translation-related source patch must be recorded in consumer maintenance notes, including:
+  - why dictionary/localizer was insufficient
+  - which files were patched
+  - which UI text / dropdown / tooltip / control it fixes
+  - whether it should later be lifted into shared localizer support
+- if a source-side translation fix is not yet converted into `.consumer-patches/`, do not treat the work as complete
+
+In other words:
+
+1. dictionary/localizer first
+2. consumer patch only when necessary
+3. every necessary translation patch must be documented
+4. never leave translation-only changes living only in the committed source snapshot
+
 For `sync` and `build`, the actual patch base is:
 
 - workflow source state
@@ -193,8 +211,10 @@ Use this order instead:
 1. identify the intended workflow mode
 2. reproduce the same pre-patch state
 3. make the code change against that state
-4. validate patches locally
-5. only then run GitHub Actions
+4. convert the change into consumer patch form immediately
+5. record every translation-related source patch in maintenance notes
+6. validate patches locally
+7. only then run GitHub Actions
 
 Local validation command:
 
