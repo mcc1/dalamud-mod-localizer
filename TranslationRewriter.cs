@@ -119,21 +119,22 @@ namespace Localizer
 
         private bool TryGetTranslation(string original, out string translated)
         {
+            translated = string.Empty;
             if (string.IsNullOrWhiteSpace(original))
             {
-                translated = null;
                 return false;
             }
 
             var lookupKey = NormalizeLookupKey(original);
             var (_, suffix) = SplitImGuiLabel(original);
 
-            if (_dictionary.TryGetValue(original, out translated) ||
-                _dictionary.TryGetValue(original.Trim(), out translated) ||
-                _dictionary.TryGetValue(NormalizeKey(original), out translated) ||
-                _normalizedLookup.TryGetValue(lookupKey, out translated))
+            string? candidateTranslation = null;
+            if (_dictionary.TryGetValue(original, out candidateTranslation) ||
+                _dictionary.TryGetValue(original.Trim(), out candidateTranslation) ||
+                _dictionary.TryGetValue(NormalizeKey(original), out candidateTranslation) ||
+                _normalizedLookup.TryGetValue(lookupKey, out candidateTranslation))
             {
-                translated = DecodeTranslationEscapes(translated);
+                translated = DecodeTranslationEscapes(candidateTranslation ?? string.Empty);
                 if (!string.IsNullOrEmpty(suffix) && !translated.Contains("###", StringComparison.Ordinal))
                 {
                     translated += suffix;
@@ -228,7 +229,7 @@ namespace Localizer
 
         // --- Roslyn 節點訪問覆寫 ---
 
-        public override SyntaxNode VisitInterpolatedStringExpression(InterpolatedStringExpressionSyntax node)
+        public override SyntaxNode? VisitInterpolatedStringExpression(InterpolatedStringExpressionSyntax node)
         {
             var sb = new StringBuilder();
             int placeholderIndex = 0;
@@ -258,7 +259,7 @@ namespace Localizer
             return base.VisitInterpolatedStringExpression(node);
         }
 
-        public override SyntaxNode VisitLiteralExpression(LiteralExpressionSyntax node)
+        public override SyntaxNode? VisitLiteralExpression(LiteralExpressionSyntax node)
         {
             if (node.IsKind(SyntaxKind.StringLiteralExpression))
             {
@@ -276,7 +277,7 @@ namespace Localizer
             return base.VisitLiteralExpression(node);
         }
 
-        public override SyntaxNode VisitBinaryExpression(BinaryExpressionSyntax node)
+        public override SyntaxNode? VisitBinaryExpression(BinaryExpressionSyntax node)
         {
             if (node.IsKind(SyntaxKind.AddExpression) &&
                 !IsNestedStringConcatenation(node) &&

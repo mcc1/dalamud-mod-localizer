@@ -30,6 +30,9 @@ on:
       gitlab_push_token:
         required: true
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   sync-repo-json:
     runs-on: ubuntu-latest

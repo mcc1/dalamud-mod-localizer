@@ -86,6 +86,9 @@ on:
         type: string
         default: ".consumer-patches/*.patch"
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   build-and-translate:
     runs-on: ubuntu-latest
