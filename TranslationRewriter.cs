@@ -308,6 +308,7 @@ namespace Localizer
             if (LooksLikeNonTranslatableText(text)) return false;
             if (IsCommandHelpArgument(node)) return true;
             if (IsHelpMessageAssignment(node)) return true;
+            if (IsHelpTextDeclaration(node)) return true;
             if (IsMenuItemText(node)) return true;
             if (IsSeStringBuilderText(node)) return true;
             if (IsDisplayMapText(node, text)) return true;
@@ -466,6 +467,42 @@ namespace Localizer
                 .OfType<AssignmentExpressionSyntax>()
                 .Any(x => x.Right == node && x.Left is IdentifierNameSyntax name &&
                           name.Identifier.Text.Equals("HelpMessage", StringComparison.Ordinal));
+        }
+
+        private bool IsHelpTextDeclaration(SyntaxNode node)
+        {
+            static bool LooksLikeHelpName(string? name)
+            {
+                if (string.IsNullOrWhiteSpace(name))
+                {
+                    return false;
+                }
+
+                return name.Equals("Help", StringComparison.Ordinal) ||
+                       name.Equals("HelpText", StringComparison.Ordinal) ||
+                       name.EndsWith("Help", StringComparison.Ordinal) ||
+                       name.EndsWith("HelpText", StringComparison.Ordinal);
+            }
+
+            var variable = node.AncestorsAndSelf().OfType<VariableDeclaratorSyntax>().FirstOrDefault();
+            if (LooksLikeHelpName(variable?.Identifier.Text))
+            {
+                return true;
+            }
+
+            var property = node.AncestorsAndSelf().OfType<PropertyDeclarationSyntax>().FirstOrDefault();
+            if (LooksLikeHelpName(property?.Identifier.Text))
+            {
+                return true;
+            }
+
+            var field = node.AncestorsAndSelf().OfType<FieldDeclarationSyntax>().FirstOrDefault();
+            if (field != null && field.Declaration.Variables.Any(v => LooksLikeHelpName(v.Identifier.Text)))
+            {
+                return true;
+            }
+
+            return false;
         }
 
         private bool IsMenuItemText(SyntaxNode node)
