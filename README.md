@@ -210,6 +210,7 @@ Use it before every new patch or patch refactor. This is the guardrail that prev
 
 ## Included Docs
 
+- [docs/CONSUMER_PATCH_WORKFLOW.md](docs/CONSUMER_PATCH_WORKFLOW.md)
 - [docs/MOD_TRANSLATION_BUILD_PLAYBOOK.md](docs/MOD_TRANSLATION_BUILD_PLAYBOOK.md)
 - [docs/TEMPLATE_EXTRACTION_NOTES.md](docs/TEMPLATE_EXTRACTION_NOTES.md)
 

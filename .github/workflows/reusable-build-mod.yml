@@ -129,9 +129,34 @@ jobs:
         if: ${{ inputs.workflow_mode != 'sync' }}
         env:
           MOD_REPO_DIR: ${{ inputs.mod_repo_dir }}
+          LOCALIZER_SOURCE_SUBPATHS: ${{ inputs.localizer_source_subpaths }}
         run: |
           if [ ! -d "$MOD_REPO_DIR" ]; then
             echo "Expected consumer source directory '$MOD_REPO_DIR' to exist for workflow_mode='${{ inputs.workflow_mode }}'."
+            exit 1
+          fi
+
+          missing=0
+          while IFS= read -r source_path; do
+            if [ -z "$source_path" ]; then
+              continue
+            fi
+
+            if [ -d "$source_path" ]; then
+              candidate="$source_path"
+            else
+              candidate="$MOD_REPO_DIR/$source_path"
+            fi
+
+            if [ ! -d "$candidate" ]; then
+              echo "Missing localizer source directory: $candidate"
+              missing=1
+            fi
+          done < <(printf '%s\n' "$LOCALIZER_SOURCE_SUBPATHS" | tr ';' '\n')
+
+          if [ "$missing" -ne 0 ]; then
+            echo "Validate Consumer Source failed before Run Localizer."
+            echo "Fix localizer_source_subpaths or workflow_mode before retrying GitHub Actions."
             exit 1
           fi
 
@@ -188,6 +213,9 @@ jobs:
             fi
 
             echo "Patch could not be applied cleanly: $patch"
+            echo "Expected patch base: current workflow source state after Run Localizer."
+            echo "Do not edit the committed source snapshot first and extract a patch later."
+            echo "Validate locally with scripts/validate_consumer_patches.py before retrying Actions."
             exit 1
           done
 

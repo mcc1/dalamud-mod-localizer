@@ -4,7 +4,6 @@ import glob
 import os
 import shutil
 import subprocess
-import sys
 import tempfile
 from pathlib import Path
 
@@ -138,6 +137,11 @@ def parse_args():
         action="store_true",
         help="Keep the temporary validation workspace for inspection.",
     )
+    parser.add_argument(
+        "--skip-localizer",
+        action="store_true",
+        help="Mirror workflows that set run_localizer=false.",
+    )
     return parser.parse_args()
 
 
@@ -159,6 +163,8 @@ def main():
     print(f"Validation workspace: {workspace}")
     shutil.copytree(consumer_repo, workspace, dirs_exist_ok=False)
 
+    keep_temp = args.keep_temp
+
     try:
         if args.workflow_mode == "sync":
             repo_url = require_env("MOD_REPO_URL", args.mod_repo_url)
@@ -171,17 +177,30 @@ def main():
                     f"{workspace / mod_repo_dir}"
                 )
 
-        run_localizer(
-            workspace,
-            template_repo,
-            mod_repo_dir,
-            source_subpaths,
-            args.localizer_dict_path,
-        )
+        if args.skip_localizer:
+            print("Skipping localizer to mirror run_localizer=false.")
+        else:
+            run_localizer(
+                workspace,
+                template_repo,
+                mod_repo_dir,
+                source_subpaths,
+                args.localizer_dict_path,
+            )
         apply_patches(workspace, args.consumer_patch_glob)
         print("Patch validation succeeded.")
+    except SystemExit:
+        keep_temp = True
+        print(
+            "Patch validation failed. The workspace was kept for inspection.\n"
+            "This usually means the patch base is wrong.\n"
+            "Expected base: workflow source state"
+            f"{' without Run Localizer' if args.skip_localizer else ' after Run Localizer'}.\n"
+            f"Workspace: {workspace}"
+        )
+        raise
     finally:
-        if args.keep_temp:
+        if keep_temp:
             print(f"Kept validation workspace: {workspace}")
         else:
             shutil.rmtree(temp_root, ignore_errors=True)
