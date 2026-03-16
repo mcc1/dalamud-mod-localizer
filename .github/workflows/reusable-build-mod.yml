@@ -97,12 +97,12 @@ jobs:
 
     steps:
       - name: Checkout Consumer Repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
       - name: Checkout Shared Template
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           repository: ${{ inputs.template_repo }}
           ref: ${{ inputs.template_ref }}
@@ -113,7 +113,7 @@ jobs:
           chmod +x ./.template/scripts/*.sh
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@v5
         with:
           dotnet-version: |
             8.0.x
@@ -282,7 +282,7 @@ jobs:
 
       - name: Upload Build Artifact
         if: ${{ inputs.workflow_mode != 'extract' }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: ${{ inputs.artifact_basename }}-${{ inputs.mod_version }}-${{ env.MOD_SHORT_REF }}
           path: ${{ env.PACKAGED_ZIP }}

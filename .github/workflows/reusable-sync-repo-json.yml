@@ -40,17 +40,17 @@ jobs:
       contents: read
     steps:
       - name: Checkout Consumer Repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Checkout Shared Template
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           repository: ${{ inputs.template_repo }}
           ref: ${{ inputs.template_ref }}
           path: .template
 
       - name: Setup Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: '3.12'
 
