@@ -11,6 +11,7 @@ This repository contains the shared layer extracted from the AutoRetainer-TW wor
 - `scripts/prepare_dalamud.sh`
 - `scripts/package_build.sh`
 - `scripts/sync_repo.py`
+- `scripts/validate_consumer_patches.py`
 - `.github/workflows/reusable-build-mod.yml`
 - `.github/workflows/reusable-sync-repo-json.yml`
 
@@ -157,6 +158,55 @@ Recommended mode usage:
   - normal day-to-day build/package runs against the consumer repo's current source
 - `workflow_mode: sync`
   - upstream/base refresh only when you intentionally upgrade the pinned mod version
+
+## Patch Validation
+
+Do not treat the committed source snapshot as the real patch base.
+
+For `sync` and `build`, the actual patch base is:
+
+- workflow source state
+- then `Run Localizer`
+- then `Apply Consumer Patches`
+
+That means this is the wrong order:
+
+1. edit `mod_repo_dir/` source snapshot directly
+2. try to extract a patch afterward
+
+Use this order instead:
+
+1. identify the intended workflow mode
+2. reproduce the same pre-patch state
+3. make the code change against that state
+4. validate patches locally
+5. only then run GitHub Actions
+
+Local validation command:
+
+```bash
+python scripts/validate_consumer_patches.py \
+  --consumer-repo /path/to/Lifestream-zhTW \
+  --workflow-mode sync \
+  --mod-repo-url https://github.com/NightmareXIV/Lifestream.git \
+  --mod-ref e91124d8f7fb0477b46d2c12c9db0fd59e66f3ad \
+  --mod-repo-dir Lifestream \
+  --localizer-source-subpaths Lifestream \
+  --localizer-dict-path zh-TW.json
+```
+
+What this script does:
+
+- copies the consumer repo into a temp workspace
+- reproduces `sync` / `build` / `extract` source selection
+- runs the localizer
+- checks consumer patches in workflow order
+
+Use it before every new patch or patch refactor. This is the guardrail that prevents:
+
+- editing the wrong patch base
+- stacking multiple patches on the same feature line
+- discovering patch breakage only after burning an Actions run
 
 ## Included Docs
 

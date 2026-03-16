@@ -335,6 +335,92 @@ dotnet run --project DalamudModLocalizer.csproj
 5. `dotnet build` 0 error。
 6. artifact 只產出一個乾淨的 `ModName.zip`。
 
+## Patch 工作流修正
+
+這一段是硬規則，不是建議。
+
+不要再用這種順序：
+
+1. 直接改 consumer repo 裡的 source snapshot
+2. 覺得功能對了之後才回頭抽 patch
+3. 最後才發現 `sync` / `build` 的 patch base 根本不是那個 snapshot
+
+這樣很容易出現：
+
+- patch 套不上
+- patch 疊太多層
+- 同一功能線互相覆蓋
+- 一直浪費 GitHub Actions run 才發現 base 錯了
+
+正確順序：
+
+1. 先判斷這次要對齊的是 `sync`、`build`、還是 `extract`
+2. 用對應模式重現 patch base
+3. 只在那個 base 上做修改
+4. 先本地驗證 patch
+5. 通過後才推送並跑 workflow
+
+### Patch Base 定義
+
+- `sync`
+  - `clone pinned upstream`
+  - `Run Localizer`
+  - 這個狀態才是 patch base
+- `build`
+  - `consumer repo current source snapshot`
+  - `Run Localizer`
+  - 這個狀態才是 patch base
+- `extract`
+  - 通常不應該新增 consumer patch
+
+### 本地驗證指令
+
+框架現在提供：
+
+- `scripts/validate_consumer_patches.py`
+
+用途：
+
+- 在暫存目錄重現 workflow 到 `Apply Consumer Patches` 前一刻
+- 依序檢查 patch 是否能套用
+- 提前抓出 base 錯誤與 patch 重疊問題
+
+範例：
+
+```bash
+python scripts/validate_consumer_patches.py \
+  --consumer-repo /path/to/Lifestream-zhTW \
+  --workflow-mode sync \
+  --mod-repo-url https://github.com/NightmareXIV/Lifestream.git \
+  --mod-ref e91124d8f7fb0477b46d2c12c9db0fd59e66f3ad \
+  --mod-repo-dir Lifestream \
+  --localizer-source-subpaths Lifestream \
+  --localizer-dict-path zh-TW.json
+```
+
+如果只是日常驗證 consumer repo 目前 snapshot：
+
+```bash
+python scripts/validate_consumer_patches.py \
+  --consumer-repo /path/to/Lifestream-zhTW \
+  --workflow-mode build \
+  --mod-repo-dir Lifestream \
+  --localizer-source-subpaths Lifestream \
+  --localizer-dict-path zh-TW.json
+```
+
+### Patch 收斂規則
+
+如果幾個 patch 都在修同一條功能線，預設要合併，不要往上疊。
+
+例如：
+
+- 台服 cross-world 名稱別名
+- 台服 world list
+- 點選 world 後的解析
+
+這些如果都在修「台服跨服旅行」，就應該盡量收成同一個 patch，而不是拆成三層彼此相依。
+
 ## 建議的專案結構
 
 如果你真的要把這個 repo 長期拿來套多個 mod，建議最終整理成：
