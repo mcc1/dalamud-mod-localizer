@@ -49,6 +49,7 @@ Consumer repositories pass these `workflow_call` inputs:
 - `localizer_source_subpaths`
 - `localizer_dict_path`
 - `build_project_path`
+- `dotnet_sdk_versions`
 - `package_build_dir`
 - `artifact_basename`
 - `release_tag_prefix`
@@ -108,7 +109,17 @@ If `GITLAB_PUSH_TOKEN` is missing, expired, or lacks scope, the consumer repo wi
 
 - localizer target: `net8.0`
 - consumer mod may target: `net9.0-windows7.0`
-- workflow SDK install set: `8.0.x` and `9.0.x`
+- workflow SDK install set defaults to: `8.0.x` and `9.0.x`
+- consumer repo can override `dotnet_sdk_versions` when newer SDKs are required
+
+Example when a future API line moves to .NET 10:
+
+```yaml
+      dotnet_sdk_versions: |
+        8.0.x
+        9.0.x
+        10.0.x
+```
 
 ## Consumer Usage
 
@@ -128,6 +139,9 @@ jobs:
       mod_repo_dir: AutoRetainer
       localizer_source_subpaths: AutoRetainer
       localizer_dict_path: zh-TW.json
+      dotnet_sdk_versions: |
+        8.0.x
+        9.0.x
       build_project_path: AutoRetainer/AutoRetainer/AutoRetainer.csproj
       package_build_dir: AutoRetainer/AutoRetainer/bin/Release
       artifact_basename: AutoRetainer

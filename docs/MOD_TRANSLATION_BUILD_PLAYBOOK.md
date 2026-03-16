@@ -113,6 +113,7 @@
 7. artifact 名稱
 8. `required_files` 清單
 9. `DALAMUD_ASSET_URL`
+10. `dotnet_sdk_versions`
 
 如果 consumer repo 還要把 `repo.json` 同步到 GitLab plugin feed，另外還要記得：
 
@@ -266,6 +267,33 @@ API13+ 常見：
 - `FFXIVClientStructs.dll`
 
 如果 build error 說 namespace 不存在，先回頭確認 API 世代，不要盲改 code。
+
+## .NET SDK 相容策略
+
+reusable workflow 不再把 SDK 安裝版本寫死在模板裡。
+
+現在 consumer repo 可以透過 `dotnet_sdk_versions` 指定要安裝哪些 SDK，例如：
+
+```yaml
+      dotnet_sdk_versions: |
+        8.0.x
+        9.0.x
+```
+
+如果之後 API14 線需要 .NET 10，可以直接改成：
+
+```yaml
+      dotnet_sdk_versions: |
+        8.0.x
+        9.0.x
+        10.0.x
+```
+
+原則：
+
+- localizer 本身目前仍是 `net8.0`
+- consumer mod 要幾版 SDK，就在 consumer workflow 明確列出
+- 不要等到升 API 才去改 shared template 的寫死版本
 
 ## Lifestream 套用方式
 

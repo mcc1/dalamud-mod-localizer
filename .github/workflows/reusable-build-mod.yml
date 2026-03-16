@@ -33,6 +33,12 @@ on:
         required: false
         type: boolean
         default: true
+      dotnet_sdk_versions:
+        required: false
+        type: string
+        default: |
+          8.0.x
+          9.0.x
       build_project_path:
         required: true
         type: string
@@ -115,9 +121,7 @@ jobs:
       - name: Setup .NET
         uses: actions/setup-dotnet@v5
         with:
-          dotnet-version: |
-            8.0.x
-            9.0.x
+          dotnet-version: ${{ inputs.dotnet_sdk_versions }}
 
       - name: Clone Target Mod Repo
         if: ${{ inputs.workflow_mode == 'sync' }}
