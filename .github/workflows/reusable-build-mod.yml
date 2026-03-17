@@ -317,6 +317,11 @@ jobs:
           if [ "${{ inputs.workflow_mode }}" = "sync" ]; then
             git rm -r --cached "$MOD_REPO_DIR" || true
             rm -rf "$MOD_REPO_DIR/.git"
+            # Remove nested .gitignore files from the mod source tree.
+            # Upstream repos (e.g. Visual Studio template) often include rules like
+            # [Ll]og/ that would cause `git add .` to silently skip sub-directories
+            # such as OtterGui/Log/. Removing them ensures the full source is committed.
+            find "$MOD_REPO_DIR" -name ".gitignore" -delete
           fi
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
