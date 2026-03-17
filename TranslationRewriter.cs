@@ -104,7 +104,7 @@ namespace Localizer
         // 使用 HashSet 確保單次運行中，同一個新字串只會被記錄一次
         public HashSet<string> MissingTranslations { get; } = new HashSet<string>();
 
-        private readonly string[] _uiKeywords = { "Text", "Button", "Label", "Combo", "Header", "Section", "Tooltip", "MenuItem", "Checkbox", "Help", "Notify", "Info", "FormatToken", "InputInt", "InputText", "InputTextWithHint", "InputWithHint", "DrawRegexInput", "Widget", "EnumCombo", "Selectable", "CollapsingHeader", "AddUiForeground", "AddText" };
+        private readonly string[] _uiKeywords = { "Text", "Button", "Label", "Combo", "Header", "Section", "Tooltip", "MenuItem", "Checkbox", "Help", "Notify", "Info", "FormatToken", "InputInt", "Widget", "EnumCombo", "Selectable", "CollapsingHeader", "AddUiForeground", "AddText" };
         private readonly string[] _blackList = { "PushID", "GetConfig", "Log", "Debug", "Print", "ExecuteCommand", "ToString", "GetField", "GetProperty", "SetFilter", "Tag", "GetTag", "InternalName", "Database", "HasTag", "AddTag", "Find" };
 
         public TranslationRewriter(Dictionary<string, string> dictionary, string jsonPath)
