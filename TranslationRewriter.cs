@@ -104,16 +104,59 @@ namespace Localizer
         // 使用 HashSet 確保單次運行中，同一個新字串只會被記錄一次
         public HashSet<string> MissingTranslations { get; } = new HashSet<string>();
 
-        private readonly string[] _uiKeywords = { "Text", "Button", "Label", "Combo", "Header", "Section", "Tooltip", "MenuItem", "Checkbox", "Help", "Notify", "Info", "FormatToken", "InputInt", "Widget", "EnumCombo", "Selectable", "CollapsingHeader", "AddUiForeground", "AddText" };
+        private readonly string[] _uiKeywords = { "Text", "Button", "Label", "Combo", "Header", "Section", "Tooltip", "MenuItem", "Checkbox", "Help", "Notify", "Info", "FormatToken", "InputInt", "Widget", "EnumCombo", "Selectable", "CollapsingHeader", "AddUiForeground", "AddText", "InputTextWithHint", "InputWithHint", "DrawRegexInput", "InputText" };
         private readonly string[] _blackList = { "PushID", "GetConfig", "Log", "Debug", "Print", "ExecuteCommand", "ToString", "GetField", "GetProperty", "SetFilter", "Tag", "GetTag", "InternalName", "Database", "HasTag", "AddTag", "Find" };
 
-        public TranslationRewriter(Dictionary<string, string> dictionary, string jsonPath)
+        // _force_translate：強制翻譯特定檔案中的特定字串，完全繞過 ShouldTranslate() heuristic。
+        // Key 為相對 mod_repo_dir 的路徑（使用 / 分隔符）；Value 為 { 英文原文 → 繁中翻譯 }。
+        private readonly Dictionary<string, Dictionary<string, string>> _forceTranslate;
+        // 目前正在處理的檔案路徑（SetCurrentFile() 設定，使用 / 分隔符）
+        private string _currentFile = string.Empty;
+        // 目前檔案的 force_translate 映射（快取以避免每個 literal 都掃描整個 _forceTranslate）
+        private Dictionary<string, string>? _currentFileForce;
+
+        public TranslationRewriter(Dictionary<string, string> dictionary, string jsonPath,
+            Dictionary<string, Dictionary<string, string>>? forceTranslate = null)
         {
             _dictionary = dictionary;
             _jsonPath = jsonPath;
             _normalizedLookup = BuildNormalizedLookup(dictionary);
             _knownTexts = BuildKnownTexts(dictionary);
+            _forceTranslate = forceTranslate ?? new Dictionary<string, Dictionary<string, string>>();
         }
+
+        /// <summary>
+        /// 在處理每個檔案前呼叫，設定目前檔案路徑以供 force_translate 機制使用。
+        /// </summary>
+        public void SetCurrentFile(string filePath)
+        {
+            _currentFile = filePath.Replace('\\', '/');
+            _currentFileForce = null;
+
+            foreach (var kvp in _forceTranslate)
+            {
+                var key = kvp.Key.Replace('\\', '/');
+                // 支援相對路徑後綴匹配（如 "Lifestream/OtterGui/ItemSelector.cs"）
+                if (_currentFile.EndsWith('/' + key, StringComparison.OrdinalIgnoreCase) ||
+                    _currentFile.Equals(key, StringComparison.OrdinalIgnoreCase))
+                {
+                    _currentFileForce = kvp.Value;
+                    break;
+                }
+            }
+        }
+
+        /// <summary>嘗試從 force_translate 表查詢目前檔案的強制翻譯。</summary>
+        private bool TryGetForceTranslation(string originalText, out string translated)
+        {
+            if (_currentFileForce != null && _currentFileForce.TryGetValue(originalText, out translated!))
+                return true;
+            translated = string.Empty;
+            return false;
+        }
+
+        /// <summary>目前檔案是否為 force-only 模式（有 force 條目 → 跳過 ShouldTranslate()）。</summary>
+        private bool IsForceOnlyFile() => _currentFileForce != null;
 
         // --- 核心翻譯與記錄邏輯 ---
 
@@ -248,6 +291,15 @@ namespace Localizer
 
             string templateKey = sb.ToString();
 
+            // 1. force_translate 優先（完全繞過 ShouldTranslate）
+            if (TryGetForceTranslation(templateKey, out var forceTranslated))
+                return ReconstructInterpolatedString(node, forceTranslated, interpolations);
+
+            // 2. force-only 模式：跳過 ShouldTranslate，避免 OtterGui 等 scope 擴充後的誤觸
+            if (IsForceOnlyFile())
+                return base.VisitInterpolatedStringExpression(node);
+
+            // 3. 正常 heuristic 路徑
             if (ShouldTranslate(node, templateKey))
             {
                 if (TryGetTranslation(templateKey, out var translated))
@@ -261,9 +313,41 @@ namespace Localizer
 
         public override SyntaxNode? VisitLiteralExpression(LiteralExpressionSyntax node)
         {
+            // C# 11 UTF-8 string literal（如 "Filter..."u8）——只走 force_translate，不走 heuristic
+            if (node.IsKind(SyntaxKind.Utf8StringLiteralExpression))
+            {
+                string originalText = node.Token.ValueText;
+                if (TryGetForceTranslation(originalText, out var forcedZh))
+                {
+                    // 重建 u8 string token，保留前後 trivia
+                    var escapedZh = EscapeStringLiteral(forcedZh);
+                    var newToken = SyntaxFactory.Token(
+                        node.Token.LeadingTrivia,
+                        SyntaxKind.Utf8StringLiteralToken,
+                        $"\"{escapedZh}\"u8",
+                        forcedZh,
+                        node.Token.TrailingTrivia);
+                    return node.WithToken(newToken);
+                }
+                return base.VisitLiteralExpression(node);
+            }
+
             if (node.IsKind(SyntaxKind.StringLiteralExpression))
             {
                 string originalText = NormalizeLiteralText(node.Token.ValueText);
+
+                // 1. force_translate 優先（完全繞過 ShouldTranslate）
+                if (TryGetForceTranslation(originalText, out var forcedZh))
+                {
+                    return SyntaxFactory.LiteralExpression(SyntaxKind.StringLiteralExpression, SyntaxFactory.Literal(forcedZh))
+                        .WithTrailingTrivia(node.GetTrailingTrivia());
+                }
+
+                // 2. force-only 模式：跳過 ShouldTranslate，避免 OtterGui 等 scope 擴充後的誤觸
+                if (IsForceOnlyFile())
+                    return base.VisitLiteralExpression(node);
+
+                // 3. 正常 heuristic 路徑
                 if (ShouldTranslate(node, originalText))
                 {
                     if (TryGetTranslation(originalText, out var translated))
@@ -283,6 +367,15 @@ namespace Localizer
                 !IsNestedStringConcatenation(node) &&
                 TryExtractStringTemplate(node, out var templateKey, out var interpolations))
             {
+                // 1. force_translate 優先
+                if (TryGetForceTranslation(templateKey, out var forceTranslated))
+                    return ReconstructInterpolatedString(node, forceTranslated, interpolations);
+
+                // 2. force-only 模式：跳過 ShouldTranslate
+                if (IsForceOnlyFile())
+                    return base.VisitBinaryExpression(node);
+
+                // 3. 正常 heuristic 路徑
                 if (ShouldTranslate(node, templateKey))
                 {
                     if (TryGetTranslation(templateKey, out var translated))
@@ -701,6 +794,21 @@ namespace Localizer
                 .Replace("\\n", "\n")
                 .Replace("\\r", "\r")
                 .Replace("\\t", "\t");
+        }
+
+        /// <summary>
+        /// 將字串內容轉義，使其可安全嵌入 C# 雙引號字串字面量（含 u8 string）中。
+        /// 用於手動建構 u8 string token 的 tokenText。
+        /// </summary>
+        private static string EscapeStringLiteral(string text)
+        {
+            return text
+                .Replace("\\", "\\\\")
+                .Replace("\"", "\\\"")
+                .Replace("\r\n", "\\r\\n")
+                .Replace("\n", "\\n")
+                .Replace("\r", "\\r")
+                .Replace("\t", "\\t");
         }
 
         private int GetLeadingWhitespaceCount(string text)
