@@ -41,9 +41,17 @@ class Program
             Console.WriteLine($"[資訊] 掃描來源目錄: {dir}");
         }
 
-        var dictionary = File.Exists(dictPath)
-            ? JsonConvert.DeserializeObject<Dictionary<string, string>>(File.ReadAllText(dictPath))
+        // 以 JObject 載入字典，分離一般字串翻譯與 _force_translate 節點
+        JObject? rawJson = File.Exists(dictPath) ? JObject.Parse(File.ReadAllText(dictPath)) : null;
+        var dictionary = rawJson != null
+            ? rawJson.Properties()
+                .Where(p => p.Value.Type == JTokenType.String)
+                .ToDictionary(p => p.Name, p => p.Value.Value<string>() ?? string.Empty)
             : new Dictionary<string, string>();
+        var forceTranslate = LoadForceTranslate(rawJson);
+
+        if (forceTranslate.Count > 0)
+            Console.WriteLine($"[資訊] 載入 _force_translate：{forceTranslate.Count} 個檔案映射。");
 
         var files = sourceDirs
             .SelectMany(dir => Directory.GetFiles(dir, "*.cs", SearchOption.AllDirectories))
@@ -52,10 +60,11 @@ class Program
 
         Console.WriteLine($"找到 {files.Length} 個檔案，準備開始掃描...");
 
-        var rewriter = new TranslationRewriter(dictionary ?? new(), dictPath);
+        var rewriter = new TranslationRewriter(dictionary, dictPath, forceTranslate);
 
         foreach (var file in files)
         {
+            rewriter.SetCurrentFile(file);
             var code = File.ReadAllText(file);
             SyntaxTree tree = CSharpSyntaxTree.ParseText(code);
             var root = tree.GetRoot();
@@ -75,7 +84,7 @@ class Program
 
         foreach (var file in manifestFiles)
         {
-            if (TranslateManifestFile(file, dictionary ?? new(), dictPath))
+            if (TranslateManifestFile(file, dictionary, dictPath))
             {
                 Console.WriteLine($"[已更新] {Path.GetRelativePath(rootPath, file)}");
             }
@@ -84,6 +93,27 @@ class Program
         Console.WriteLine("正在檢查是否有新發現的字串需寫入字典...");
         rewriter.SaveMissingTranslations();
         Console.WriteLine("中文化處理與字典更新完成！");
+    }
+
+    /// <summary>
+    /// 從 zh-TW.json 的 _force_translate 節點載入強制翻譯映射。
+    /// 結構：{ "相對路徑/檔名.cs": { "英文原文": "繁中翻譯" } }
+    /// </summary>
+    static Dictionary<string, Dictionary<string, string>> LoadForceTranslate(JObject? json)
+    {
+        var result = new Dictionary<string, Dictionary<string, string>>(StringComparer.OrdinalIgnoreCase);
+        if (json?["_force_translate"] is not JObject forceNode) return result;
+
+        foreach (var fileProp in forceNode.Properties())
+        {
+            if (fileProp.Value is not JObject fileNode) continue;
+            var fileMap = fileNode.Properties()
+                .Where(p => p.Value.Type == JTokenType.String)
+                .ToDictionary(p => p.Name, p => p.Value.Value<string>() ?? string.Empty);
+            if (fileMap.Count > 0)
+                result[fileProp.Name] = fileMap;
+        }
+        return result;
     }
 
     static bool TranslateManifestFile(string filePath, Dictionary<string, string> dictionary, string dictPath)
