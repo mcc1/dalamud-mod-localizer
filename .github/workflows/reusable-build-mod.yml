@@ -317,11 +317,12 @@ jobs:
           if [ "${{ inputs.workflow_mode }}" = "sync" ]; then
             git rm -r --cached "$MOD_REPO_DIR" || true
             rm -rf "$MOD_REPO_DIR/.git"
-            # Remove nested .gitignore files from the mod source tree.
-            # Upstream repos (e.g. Visual Studio template) often include rules like
-            # [Ll]og/ that would cause `git add .` to silently skip sub-directories
-            # such as OtterGui/Log/. Removing them ensures the full source is committed.
-            find "$MOD_REPO_DIR" -name ".gitignore" -delete
+            # Force-add the mod source directory to bypass nested .gitignore rules.
+            # Upstream repos (e.g. Visual Studio template) often include patterns like
+            # [Ll]og/ that cause `git add .` to silently skip source sub-directories
+            # such as OtterGui/Log/. Using -f targets only $MOD_REPO_DIR and does not
+            # affect the consumer repo's own .gitignore for patches/workflow files.
+            git add -f "$MOD_REPO_DIR"
           fi
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
