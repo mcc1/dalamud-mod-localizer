@@ -473,6 +473,7 @@ namespace Localizer
         // 偵測 Notify.X(...)、DuoLog.X(...)、Chat.X(...) 等 notification/log 呼叫。
         // 只看 receiver 物件名稱，不看 method name，避免 "Error"/"Success" 之類
         // 的通用名稱誤觸。搭配 IsHumanText() 過濾短代號字串。
+        // 注意：method name 須先通過 blacklist 過濾（如 Chat.ExecuteCommand 應被排除）。
         private static readonly HashSet<string> _notifyReceivers = new(StringComparer.OrdinalIgnoreCase)
         {
             "Notify", "DuoLog", "Chat", "Svc.Chat",
@@ -483,6 +484,10 @@ namespace Localizer
             return node.Ancestors().OfType<InvocationExpressionSyntax>().Any(inv =>
             {
                 if (inv.Expression is not MemberAccessExpressionSyntax m)
+                    return false;
+                // 先過濾 blacklist 方法（ExecuteCommand、SendMessage、Print 等）
+                var methodName = m.Name.Identifier.Text;
+                if (_blackList.Any(b => methodName.Equals(b, StringComparison.OrdinalIgnoreCase)))
                     return false;
                 var receiver = m.Expression.ToString();
                 // 直接比對 "Notify" / "DuoLog" 或鏈式存取末端（"S.Notify"、"P.Chat" 等）
@@ -780,7 +785,18 @@ namespace Localizer
                 return true;
             }
 
-            return Regex.IsMatch(normalized, @"(^|[\s""'`])[\w./\\-]+\.(png|jpg|jpeg|svg|webp|dds|tex)\b", RegexOptions.IgnoreCase);
+            if (Regex.IsMatch(normalized, @"(^|[\s""'`])[\w./\\-]+\.(png|jpg|jpeg|svg|webp|dds|tex)\b", RegexOptions.IgnoreCase))
+            {
+                return true;
+            }
+
+            // C printf/ImGui format specifiers（如 %llu、%.6f、%02hhX）——不是 UI 顯示文字
+            if (Regex.IsMatch(normalized, @"^(0x)?%[-+0 #]?(\d+|\*)?(\.\d+|\.\*)?([hlqLzjt]{0,3})[diouxXeEfFgGaAcspn%]$"))
+            {
+                return true;
+            }
+
+            return false;
         }
 
         private string NormalizeLiteralText(string text)
