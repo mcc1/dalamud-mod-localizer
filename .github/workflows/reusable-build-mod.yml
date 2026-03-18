@@ -316,19 +316,13 @@ jobs:
           rm -rf .template
           if [ "${{ inputs.workflow_mode }}" = "sync" ]; then
             git rm -r --cached "$MOD_REPO_DIR" || true
-            rm -rf "$MOD_REPO_DIR/.git"
-            # `git add -f DIR` still respects .gitignore files *within* DIR when
-            # deciding whether to recurse into subdirectories — it only bypasses
-            # the consumer repo's own ignores.  Upstream repos (e.g. Lifestream)
-            # often include [Ll]og/ in their root .gitignore, which silently blocks
-            # `git add` from entering OtterGui/Log/ even with -f.
-            # Deleting all .gitignore files inside the mod dir first ensures every
-            # subdirectory (including Log/) is traversed and committed.
+            # Remove ALL .git directories/files recursively, not just the top-level
+            # one.  Submodules (e.g. OtterGui) leave a .git *file* pointing to the
+            # parent's .git/modules/<name>.  If any nested .git remains, git treats
+            # that subtree as a separate repo and silently skips its files (including
+            # OtterGui/Log/) when staging — even with `git add -f` on individual paths.
+            find "$MOD_REPO_DIR" -name '.git' -prune -exec rm -rf {} +
             find "$MOD_REPO_DIR" -name '.gitignore' -delete
-            # `git add -f DIR` may still skip gitignored subdirectories (e.g. Log/)
-            # even after .gitignore deletion, due to runner-level gitignore or git
-            # directory-traversal behaviour.  Force-add each file individually to
-            # guarantee every file is staged regardless of any gitignore rules.
             git config --global core.excludesFile /dev/null
             find "$MOD_REPO_DIR" -type f -print0 | xargs -0 git add -f
           fi
