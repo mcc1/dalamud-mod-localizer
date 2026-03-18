@@ -325,6 +325,10 @@ jobs:
             # Deleting all .gitignore files inside the mod dir first ensures every
             # subdirectory (including Log/) is traversed and committed.
             find "$MOD_REPO_DIR" -name '.gitignore' -delete
+            # Also clear the runner-level global excludesFile (GitHub Actions ubuntu
+            # runners include [Ll]og/ in their user-level .gitignore_global, which
+            # `git add -f` still respects even after project-level .gitignore deletion).
+            git config --global core.excludesFile /dev/null
             git add -f "$MOD_REPO_DIR"
           fi
           git config --global user.name "github-actions[bot]"
