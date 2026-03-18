@@ -325,6 +325,10 @@ jobs:
             find "$MOD_REPO_DIR" -name '.gitignore' -delete
             git config --global core.excludesFile /dev/null
             find "$MOD_REPO_DIR" -type f -print0 | xargs -0 git add -f
+            # git add may silently skip files in gitignored directories even with -f.
+            # Use git update-index --add as a last resort — it bypasses all gitignore
+            # rules and directly writes entries into the index.
+            find "$MOD_REPO_DIR" -type f -print0 | xargs -0 git update-index --add
           fi
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
