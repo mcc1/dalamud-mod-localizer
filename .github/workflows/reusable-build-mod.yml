@@ -316,19 +316,27 @@ jobs:
           rm -rf .template
           if [ "${{ inputs.workflow_mode }}" = "sync" ]; then
             git rm -r --cached "$MOD_REPO_DIR" || true
-            # Remove ALL .git directories/files recursively, not just the top-level
-            # one.  Submodules (e.g. OtterGui) leave a .git *file* pointing to the
-            # parent's .git/modules/<name>.  If any nested .git remains, git treats
-            # that subtree as a separate repo and silently skips its files (including
-            # OtterGui/Log/) when staging — even with `git add -f` on individual paths.
-            find "$MOD_REPO_DIR" -name '.git' -prune -exec rm -rf {} +
+            # Remove ALL .git directories/files recursively so git does not treat
+            # submodule trees (e.g. OtterGui, OtterGuiInternal) as nested repos.
+            find "$MOD_REPO_DIR" -name '.git' | sort -r | xargs rm -rf
             find "$MOD_REPO_DIR" -name '.gitignore' -delete
             git config --global core.excludesFile /dev/null
-            find "$MOD_REPO_DIR" -type f -print0 | xargs -0 git add -f
-            # git add may silently skip files in gitignored directories even with -f.
-            # Use git update-index --add as a last resort — it bypasses all gitignore
-            # rules and directly writes entries into the index.
-            find "$MOD_REPO_DIR" -type f -print0 | xargs -0 git update-index --add
+
+            echo "=== DIAG: .git remaining ==="
+            find "$MOD_REPO_DIR" -name '.git' | head -10 || echo "(none)"
+            echo "=== DIAG: .gitignore remaining ==="
+            find "$MOD_REPO_DIR" -name '.gitignore' | head -10 || echo "(none)"
+            echo "=== DIAG: Log/ dirs on disk ==="
+            find "$MOD_REPO_DIR" -type d -name 'Log' | head -10 || echo "(none)"
+
+            # Use --stdin -z piped from find: this bypasses all gitignore rules and
+            # avoids xargs ARG_MAX batching issues that may silently skip files.
+            find "$MOD_REPO_DIR" -type f -print0 | git update-index -z --add --stdin
+
+            echo "=== DIAG: Log/ in index ==="
+            git ls-files "$MOD_REPO_DIR/" | grep -i '/Log/' | head -10 || echo "(not in index)"
+            echo "=== DIAG: total indexed under $MOD_REPO_DIR ==="
+            git ls-files "$MOD_REPO_DIR/" | wc -l
           fi
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
