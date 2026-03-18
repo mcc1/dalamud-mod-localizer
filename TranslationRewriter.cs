@@ -470,13 +470,15 @@ namespace Localizer
             return false;
         }
 
-        // 偵測 Notify.X(...)、DuoLog.X(...)、Chat.X(...) 等 notification/log 呼叫。
+        // 偵測 Notify.X(...)、DuoLog.X(...) 等 plugin notification 呼叫。
         // 只看 receiver 物件名稱，不看 method name，避免 "Error"/"Success" 之類
         // 的通用名稱誤觸。搭配 IsHumanText() 過濾短代號字串。
-        // 注意：method name 須先通過 blacklist 過濾（如 Chat.ExecuteCommand 應被排除）。
+        // 注意：method name 須先通過 blacklist 過濾。
+        // Chat / Svc.Chat 是傳送遊戲指令用的物件，不是 plugin UI notification，
+        // 不列入此清單——否則 Chat.SendMessage("/logout") 等指令字串會被誤抓。
         private static readonly HashSet<string> _notifyReceivers = new(StringComparer.OrdinalIgnoreCase)
         {
-            "Notify", "DuoLog", "Chat", "Svc.Chat",
+            "Notify", "DuoLog",
         };
 
         private bool IsNotifyLikeCall(SyntaxNode node)

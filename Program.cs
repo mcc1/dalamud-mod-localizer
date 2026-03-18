@@ -110,8 +110,8 @@ class Program
             var fileMap = fileNode.Properties()
                 .Where(p => p.Value.Type == JTokenType.String)
                 .ToDictionary(p => p.Name, p => p.Value.Value<string>() ?? string.Empty);
-            if (fileMap.Count > 0)
-                result[fileProp.Name] = fileMap;
+            // 空 dict（{}）也要加入：代表「此檔案排除 heuristic 掃描」
+            result[fileProp.Name] = fileMap;
         }
         return result;
     }
