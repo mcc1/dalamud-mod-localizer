@@ -313,13 +313,14 @@ namespace Localizer
 
         public override SyntaxNode? VisitLiteralExpression(LiteralExpressionSyntax node)
         {
-            // C# 11 UTF-8 string literal（如 "Filter..."u8）——只走 force_translate，不走 heuristic
+            // C# 11 UTF-8 string literal（如 "Filter..."u8）
             if (node.IsKind(SyntaxKind.Utf8StringLiteralExpression))
             {
                 string originalText = node.Token.ValueText;
+
+                // 1. force_translate 優先（完全繞過 ShouldTranslate）
                 if (TryGetForceTranslation(originalText, out var forcedZh))
                 {
-                    // 重建 u8 string token，保留前後 trivia
                     var escapedZh = EscapeStringLiteral(forcedZh);
                     var newToken = SyntaxFactory.Token(
                         node.Token.LeadingTrivia,
@@ -328,6 +329,26 @@ namespace Localizer
                         forcedZh,
                         node.Token.TrailingTrivia);
                     return node.WithToken(newToken);
+                }
+
+                // 2. force-only 模式：略過 heuristic
+                if (IsForceOnlyFile())
+                    return base.VisitLiteralExpression(node);
+
+                // 3. heuristic 路徑：seed 進字典並嘗試翻譯（維持 u8 literal 型別）
+                if (ShouldTranslate(node, originalText))
+                {
+                    if (TryGetTranslation(originalText, out var translated))
+                    {
+                        var escapedTranslated = EscapeStringLiteral(translated);
+                        var newToken = SyntaxFactory.Token(
+                            node.Token.LeadingTrivia,
+                            SyntaxKind.Utf8StringLiteralToken,
+                            $"\"{escapedTranslated}\"u8",
+                            translated,
+                            node.Token.TrailingTrivia);
+                        return node.WithToken(newToken);
+                    }
                 }
                 return base.VisitLiteralExpression(node);
             }
@@ -406,6 +427,7 @@ namespace Localizer
             if (IsSeStringBuilderText(node)) return true;
             if (IsDisplayMapText(node, text)) return true;
             if (IsBaseConstructorTitle(node, text)) return true;
+            if (IsNotifyLikeCall(node)) return IsHumanText(text);
 
             var invocations = node.Ancestors().OfType<InvocationExpressionSyntax>().ToList();
 
@@ -446,6 +468,31 @@ namespace Localizer
             }
 
             return false;
+        }
+
+        // 偵測 Notify.X(...)、DuoLog.X(...)、Chat.X(...) 等 notification/log 呼叫。
+        // 只看 receiver 物件名稱，不看 method name，避免 "Error"/"Success" 之類
+        // 的通用名稱誤觸。搭配 IsHumanText() 過濾短代號字串。
+        private static readonly HashSet<string> _notifyReceivers = new(StringComparer.OrdinalIgnoreCase)
+        {
+            "Notify", "DuoLog", "Chat", "Svc.Chat",
+        };
+
+        private bool IsNotifyLikeCall(SyntaxNode node)
+        {
+            return node.Ancestors().OfType<InvocationExpressionSyntax>().Any(inv =>
+            {
+                if (inv.Expression is not MemberAccessExpressionSyntax m)
+                    return false;
+                var receiver = m.Expression.ToString();
+                // 直接比對 "Notify" / "DuoLog" 或鏈式存取末端（"S.Notify"、"P.Chat" 等）
+                if (_notifyReceivers.Contains(receiver))
+                    return true;
+                var dot = receiver.LastIndexOf('.');
+                if (dot >= 0 && _notifyReceivers.Contains(receiver[(dot + 1)..]))
+                    return true;
+                return false;
+            });
         }
 
         private bool IsBaseConstructorTitle(SyntaxNode node, string text)
