@@ -316,27 +316,18 @@ jobs:
           rm -rf .template
           if [ "${{ inputs.workflow_mode }}" = "sync" ]; then
             git rm -r --cached "$MOD_REPO_DIR" || true
-            # Remove ALL .git directories/files recursively so git does not treat
-            # submodule trees (e.g. OtterGui, OtterGuiInternal) as nested repos.
+            # Remove ALL nested .git files/dirs so git does not treat submodule
+            # trees (e.g. OtterGui, OtterGuiInternal) as nested repos and skip
+            # their files when staging.
             find "$MOD_REPO_DIR" -name '.git' | sort -r | xargs rm -rf
+            # Delete gitignore files inside the mod dir that block source files
+            # (e.g. [Ll]og/ in Lifestream's Visual Studio gitignore).
+            # The consumer repo's own .gitignore (bin/, obj/, etc.) stays active
+            # so build artifacts are still excluded from the snapshot.
             find "$MOD_REPO_DIR" -name '.gitignore' -delete
-            git config --global core.excludesFile /dev/null
-
-            echo "=== DIAG: .git remaining ==="
-            find "$MOD_REPO_DIR" -name '.git' | head -10 || echo "(none)"
-            echo "=== DIAG: .gitignore remaining ==="
-            find "$MOD_REPO_DIR" -name '.gitignore' | head -10 || echo "(none)"
-            echo "=== DIAG: Log/ dirs on disk ==="
-            find "$MOD_REPO_DIR" -type d -name 'Log' | head -10 || echo "(none)"
-
-            # Use --stdin -z piped from find: this bypasses all gitignore rules and
-            # avoids xargs ARG_MAX batching issues that may silently skip files.
-            find "$MOD_REPO_DIR" -type f -print0 | git update-index -z --add --stdin
-
-            echo "=== DIAG: Log/ in index ==="
-            git ls-files "$MOD_REPO_DIR/" | grep -i '/Log/' | head -10 || echo "(not in index)"
-            echo "=== DIAG: total indexed under $MOD_REPO_DIR ==="
-            git ls-files "$MOD_REPO_DIR/" | wc -l
+            # Regular git add: respects consumer .gitignore (bin/obj excluded),
+            # no longer blocked by deleted nested gitignore rules.
+            git add "$MOD_REPO_DIR"
           fi
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
