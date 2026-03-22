@@ -125,7 +125,7 @@ def sync_entry(source: dict, token: str | None) -> dict:
     synced = {}
     synced.update({k: v for k, v in manifest.items() if k in ALLOWED_KEYS})
     synced["DownloadLinkInstall"] = asset["browser_download_url"]
-    synced["DownloadLinkUpdate"] = asset["browser_download_url"]
+    synced["DownloadLinkUpdate"] = asset["browser_download_url"]  # may be overridden below
     synced["RepoUrl"] = f"https://github.com/{source['source_repo']}"
     synced["IsHide"] = "False"
     synced["IsTestingExclusive"] = "False"
@@ -151,6 +151,8 @@ def sync_entry(source: dict, token: str | None) -> dict:
             "DalamudApiLevel", synced.get("DalamudApiLevel")
         )
         synced["DownloadLinkTesting"] = test_asset["browser_download_url"]
+        # DownloadLinkUpdate points to testing so installed users get testing updates
+        synced["DownloadLinkUpdate"] = test_asset["browser_download_url"]
 
     return synced
 
