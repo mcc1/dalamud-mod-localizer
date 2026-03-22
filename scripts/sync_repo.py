@@ -32,6 +32,7 @@ ALLOWED_KEYS = {
     "IconUrl",
     "Punchline",
     "AcceptsFeedback",
+    "IsTestingExclusive",
     "DownloadLinkInstall",
     "DownloadLinkUpdate",
     "ImageUrls",
