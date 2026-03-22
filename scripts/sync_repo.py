@@ -3,6 +3,7 @@ import json
 import os
 import re
 import sys
+import time
 import urllib.error
 import urllib.request
 import zipfile
@@ -32,9 +33,14 @@ ALLOWED_KEYS = {
     "IconUrl",
     "Punchline",
     "AcceptsFeedback",
+    "IsHide",
     "IsTestingExclusive",
+    "TestingAssemblyVersion",
+    "TestingDalamudApiLevel",
     "DownloadLinkInstall",
     "DownloadLinkUpdate",
+    "DownloadLinkTesting",
+    "LastUpdate",
     "ImageUrls",
 }
 
@@ -101,6 +107,7 @@ def read_manifest_from_zip(zip_bytes: bytes, manifest_path: str) -> dict:
 
 
 def sync_entry(source: dict, token: str | None) -> dict:
+    # --- Stable release ---
     fixed_release_tag = source.get("fixed_release_tag")
     if fixed_release_tag:
         release = get_release_by_tag(source["source_repo"], fixed_release_tag, token)
@@ -120,10 +127,30 @@ def sync_entry(source: dict, token: str | None) -> dict:
     synced["DownloadLinkInstall"] = asset["browser_download_url"]
     synced["DownloadLinkUpdate"] = asset["browser_download_url"]
     synced["RepoUrl"] = f"https://github.com/{source['source_repo']}"
+    synced["IsHide"] = "False"
+    synced["IsTestingExclusive"] = "False"
+    synced["LastUpdate"] = str(int(time.time()))
 
     overrides = source.get("manifest_overrides", {})
     if overrides:
         synced.update({k: v for k, v in overrides.items() if k in ALLOWED_KEYS})
+
+    # --- Testing release (optional) ---
+    testing = source.get("testing")
+    if testing:
+        test_tag = testing["fixed_release_tag"]
+        test_release = get_release_by_tag(source["source_repo"], test_tag, token)
+        test_asset = pick_asset(
+            test_release.get("assets", []), testing.get("asset_name_regex")
+        )
+        test_zip = http_get_bytes(test_asset["browser_download_url"], token=token)
+        test_manifest = read_manifest_from_zip(test_zip, source["manifest_path"])
+
+        synced["TestingAssemblyVersion"] = test_manifest.get("AssemblyVersion", "")
+        synced["TestingDalamudApiLevel"] = test_manifest.get(
+            "DalamudApiLevel", synced.get("DalamudApiLevel")
+        )
+        synced["DownloadLinkTesting"] = test_asset["browser_download_url"]
 
     return synced
 
@@ -135,10 +162,12 @@ def main() -> int:
     for source in sources:
         updated = sync_entry(source, token)
         internal_name = updated.get("InternalName", source["internal_name"])
+        testing_ver = updated.get("TestingAssemblyVersion", "")
         print(
             f"Synchronized {internal_name}: "
-            f"{updated.get('AssemblyVersion')} "
-            f"(API {updated.get('DalamudApiLevel')})"
+            f"{updated.get('AssemblyVersion')}"
+            + (f" / testing {testing_ver}" if testing_ver else "")
+            + f" (API {updated.get('DalamudApiLevel')})"
         )
         ordered.append(updated)
 
